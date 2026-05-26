@@ -100,7 +100,7 @@ function main(config) {
   };
 
   // --- 6. 动态规则集 Providers ---
-  var proxyUrlPrefix = "https://testingcf.jsdelivr.net/gh/MetaCubeX/meta-rules-dat@release/geo";
+  var proxyUrlPrefix = "https://testingcf.jsdelivr.net/gh/MetaCubeX/meta-rules-dat@meta/geo";
   var providers = {
     "category-ads-all": { "type": "http", "format": "mrs", "behavior": "domain", "url": proxyUrlPrefix + "/geosite/category-ads-all.mrs", "path": "./ruleset/category-ads-all.mrs", "interval": 86400 },
     "cn": { "type": "http", "format": "mrs", "behavior": "domain", "url": proxyUrlPrefix + "/geosite/cn.mrs", "path": "./ruleset/cn.mrs", "interval": 86400 },
