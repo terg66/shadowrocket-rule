@@ -60,16 +60,16 @@ function main(config) {
     ]
   };
 
-  // --- 4. GEO 数据源 (官方高可用源) ---
+  // --- 4. GEO 数据源 (官方直连源) ---
   config["geodata-mode"] = true;
   config["geo-auto-update"] = true;
   config["geodata-loader"] = "memconservative";
   config["geo-update-interval"] = 24;
   config["geox-url"] = {
-    "geoip": "https://testingcf.jsdelivr.net/gh/MetaCubeX/meta-rules-dat@release/geoip.dat",
-    "geosite": "https://testingcf.jsdelivr.net/gh/MetaCubeX/meta-rules-dat@release/geosite.dat",
-    "mmdb": "https://testingcf.jsdelivr.net/gh/MetaCubeX/meta-rules-dat@release/country.mmdb",
-    "asn": "https://testingcf.jsdelivr.net/gh/MetaCubeX/meta-rules-dat@release/GeoLite2-ASN.mmdb"
+    "geoip": "https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/release/geoip.dat",
+    "geosite": "https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/release/geosite.dat",
+    "mmdb": "https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/release/country.mmdb",
+    "asn": "https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/release/GeoLite2-ASN.mmdb"
   };
 
   // --- 5. DNS 高阶配置 (融合 Mi 官方白名单与 Script B 分流) ---
@@ -100,7 +100,7 @@ function main(config) {
   };
 
   // --- 6. 动态规则集 Providers ---
-  var proxyUrlPrefix = "https://testingcf.jsdelivr.net/gh/MetaCubeX/meta-rules-dat@meta/geo";
+  var proxyUrlPrefix = "https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/meta/geo";
   var providers = {
     "category-ads-all": { "type": "http", "format": "mrs", "behavior": "domain", "url": proxyUrlPrefix + "/geosite/category-ads-all.mrs", "path": "./ruleset/category-ads-all.mrs", "interval": 86400 },
     "cn": { "type": "http", "format": "mrs", "behavior": "domain", "url": proxyUrlPrefix + "/geosite/cn.mrs", "path": "./ruleset/cn.mrs", "interval": 86400 },
