@@ -1,66 +1,157 @@
 // =========================================================================
-// 适用版本: Clash Verge Rev / Clash Mi / Mihomo 内核 (终极通用版)
-// 核心特色: 结合实战防封锁 + 官方底层调优 + 完美硬件/游戏机兼容
+// 适用版本: Clash Verge Rev / Clash Meta / Mihomo 内核
+// 版本: 终极融合版 v9 (广电宽带抗干扰 + Apple Relay 死锁修复)
+// 修复清单(v9新增):
+// [v9-1] 🔴 强制拦截 Apple Private Relay (mask.icloud.com等)，解决彻底断网的 DNS 死锁！
+// [v9-2] 🟢 响应内核警告：测速 URL 全面升级为 https://www.gstatic.com/generate_204 防止广电 HTTP 劫持
+// [v9-3] 🟢 缩短节点健康检查超时时间 (5000ms -> 3000ms)，面对断流时切换更快
 // =========================================================================
 
 var ruleOptions = {
-  finance: true,      // 💰 金融服务
-  crypto: true,       // 🤝 交易所
-  ai: true,           // 💬 AI 服务
-  youtube: true,      // 📹 油管视频
-  google: true,       // 🔍 谷歌服务
-  github: true,       // 🐱 Github
-  microsoft: true,    // Ⓜ️ 微软服务
-  apple: true,        // 🍏 苹果服务
-  telegram: true,     // 📲 电报消息
-  twitter: true,      // 🌐 社交媒体
-  netflix: true       // 🎬 流媒体
+  finance: true,   // 💰 金融服务
+  crypto: true,    // 🤝 交易所
+  ai: true,        // 💬 AI 服务
+  youtube: true,   // 📹 油管视频
+  google: true,    // 🔍 谷歌服务
+  github: true,    // 🐱 Github
+  microsoft: true, // Ⓜ️ 微软服务
+  apple: true,     // 🍏 苹果服务
+  telegram: true,  // 📲 电报消息
+  twitter: true,   // 🌐 社交媒体
+  netflix: true    // 🎬 流媒体
 };
 
+var flagBase = "https://raw.githubusercontent.com/HatScripts/circle-flags/gh-pages/flags/";
+var qureBase = "https://raw.githubusercontent.com/Koolson/Qure/master/IconSet/Color/";
+
+var iconMap = {
+  "🚀 节点选择": qureBase + "Proxy.png",
+  "⚡ 自动选择": qureBase + "Auto.png",
+  "⚖️ 负载均衡": qureBase + "Round_Robin.png",
+  "🔯 故障转移": qureBase + "Available.png",
+  "🖐️ 手动切换": qureBase + "Static.png",
+  "🏠 私有网络": qureBase + "Direct.png",
+  "🐟 漏网之鱼": qureBase + "Final.png",
+  "🌍 其他节点": qureBase + "Global.png",
+  "💬 AI 服务": qureBase + "ChatGPT.png",
+  "📹 油管视频": qureBase + "YouTube.png",
+  "🔍 谷歌服务": qureBase + "Google.png",
+  "🐱 Github": qureBase + "GitHub.png",
+  "Ⓜ️ 微软服务": qureBase + "Microsoft.png",
+  "🍏 苹果服务": qureBase + "Apple.png",
+  "📲 电报消息": qureBase + "Telegram.png",
+  "🌐 社交媒体": qureBase + "Twitter.png",
+  "🎬 流媒体": qureBase + "Netflix.png",
+  "🤝 交易所": qureBase + "Cryptocurrency.png",
+  "💰 金融服务": qureBase + "PayPal.png",
+  "🇺🇸 美国节点": flagBase + "us.svg",
+  "🇨🇭 瑞士节点": flagBase + "ch.svg",
+  "🇭🇰 香港节点": flagBase + "hk.svg",
+  "🇯🇵 日本节点": flagBase + "jp.svg",
+  "🇹🇼 台湾节点": flagBase + "tw.svg",
+  "🇸🇬 新加坡节点": flagBase + "sg.svg",
+  "🇰🇷 韩国节点": flagBase + "kr.svg",
+  "🇬🇧 英国节点": flagBase + "gb.svg",
+  "🇩🇪 德国节点": flagBase + "de.svg",
+  "🇫🇷 法国节点": flagBase + "fr.svg",
+  "🇲🇾 马来节点": flagBase + "my.svg",
+  "🇹🇷 土耳其节点": flagBase + "tr.svg",
+  "🇨🇦 加拿大节点": flagBase + "ca.svg",
+  "🇦🇺 澳洲节点": flagBase + "au.svg",
+  "🇳🇱 荷兰节点": flagBase + "nl.svg",
+  "🇮🇳 印度节点": flagBase + "in.svg",
+  "🇷🇺 俄罗斯节点": flagBase + "ru.svg",
+  "🇦🇷 阿根廷节点": flagBase + "ar.svg",
+  "🇵🇱 波兰节点": flagBase + "pl.svg",
+  "🇮🇹 意大利节点": flagBase + "it.svg"
+};
+
+function getIcon(name) { return iconMap[name] || null; }
+function withIcon(groupObj) {
+  var icon = getIcon(groupObj.name);
+  if (icon) groupObj["icon"] = icon;
+  return groupObj;
+}
+
+var regionFilters = [
+  { name: "🇺🇸 美国节点", regex: "美|\\bus\\b|united.?states|america", filterRegex: "(?i)(?:美国|united.?states|america|(?:^|[^a-zA-Z])us(?:[^a-zA-Z]|))" },
+  { name: "🇨🇭 瑞士节点", regex: "瑞士|\\bch\\b|\\brs\\b|switzerland", filterRegex: "(?i)(?:瑞士|switzerland|(?:^|[^a-zA-Z])ch(?:[^a-zA-Z]|)|(?:^|[^a-zA-Z])rs(?:[^a-zA-Z]|))" },
+  { name: "🇭🇰 香港节点", regex: "港|\\bhk\\b|hongkong|hong.?kong", filterRegex: "(?i)(?:港|hongkong|hong.?kong|(?:^|[^a-zA-Z])hk(?:[^a-zA-Z]|))" },
+  { name: "🇯🇵 日本节点", regex: "日|\\bjp\\b|japan", filterRegex: "(?i)(?:日本|japan|(?:^|[^a-zA-Z])jp(?:[^a-zA-Z]|))" },
+  { name: "🇹🇼 台湾节点", regex: "台|\\btw\\b|taiwan", filterRegex: "(?i)(?:台湾|taiwan|(?:^|[^a-zA-Z])tw(?:[^a-zA-Z]|))" },
+  { name: "🇸🇬 新加坡节点", regex: "新|\\bsg\\b|singapore", filterRegex: "(?i)(?:新加坡|singapore|(?:^|[^a-zA-Z])sg(?:[^a-zA-Z]|))" },
+  { name: "🇰🇷 韩国节点", regex: "韩|\\bkr\\b|korea", filterRegex: "(?i)(?:韩国|korea|(?:^|[^a-zA-Z])kr(?:[^a-zA-Z]|))" },
+  { name: "🇬🇧 英国节点", regex: "英|\\buk\\b|\\bgb\\b|united.?kingdom|britain", filterRegex: "(?i)(?:英国|united.?kingdom|britain|(?:^|[^a-zA-Z])uk(?:[^a-zA-Z]|)|(?:^|[^a-zA-Z])gb(?:[^a-zA-Z]|))" },
+  { name: "🇩🇪 德国节点", regex: "德|\\bde\\b|germany", filterRegex: "(?i)(?:德国|germany|(?:^|[^a-zA-Z])de(?:[^a-zA-Z]|))" },
+  { name: "🇫🇷 法国节点", regex: "法|\\bfr\\b|france", filterRegex: "(?i)(?:法国|france|(?:^|[^a-zA-Z])fr(?:[^a-zA-Z]|))" },
+  { name: "🇲🇾 马来节点", regex: "马来|\\bmy\\b|malaysia", filterRegex: "(?i)(?:马来|malaysia|(?:^|[^a-zA-Z])my(?:[^a-zA-Z]|))" },
+  { name: "🇹🇷 土耳其节点", regex: "土耳其|\\btr\\b|turkey|turkiye", filterRegex: "(?i)(?:土耳其|turkey|turkiye|(?:^|[^a-zA-Z])tr(?:[^a-zA-Z]|))" },
+  { name: "🇨🇦 加拿大节点", regex: "加拿大|canada|\\bca[-]|[-]ca\\b", filterRegex: "(?i)(?:加拿大|canada|(?:^|[^a-zA-Z])ca[-_]|[-_]ca(?:[^a-zA-Z]|))" },
+  { name: "🇦🇺 澳洲节点", regex: "澳|\\bau\\b|australia", filterRegex: "(?i)(?:澳大利亚|australia|(?:^|[^a-zA-Z])au(?:[^a-zA-Z]|))" },
+  { name: "🇳🇱 荷兰节点", regex: "荷兰|\\bnl\\b|netherlands", filterRegex: "(?i)(?:荷兰|netherlands|(?:^|[^a-zA-Z])nl(?:[^a-zA-Z]|))" },
+  { name: "🇮🇳 印度节点", regex: "印度|india|\\bindian\\b", filterRegex: "(?i)(?:印度|india|indian)" },
+  { name: "🇷🇺 俄罗斯节点", regex: "俄|\\bru\\b|russia", filterRegex: "(?i)(?:俄罗斯|russia|(?:^|[^a-zA-Z])ru(?:[^a-zA-Z]|))" },
+  { name: "🇦🇷 阿根廷节点", regex: "阿根廷|\\bar\\b|argentina", filterRegex: "(?i)(?:阿根廷|argentina|(?:^|[^a-zA-Z])ar(?:[^a-zA-Z]|))" },
+  { name: "🇵🇱 波兰节点", regex: "波兰|\\bpl\\b|poland", filterRegex: "(?i)(?:波兰|poland|(?:^|[^a-zA-Z])pl(?:[^a-zA-Z]|))" },
+  { name: "🇮🇹 意大利节点", regex: "意大利|\\bit\\b|italy", filterRegex: "(?i)(?:意大利|italy|(?:^|[^a-zA-Z])it(?:[^a-zA-Z]|))" }
+];
+
 function main(config) {
-  // --- 1. 全局核心底层与抗封锁调优 (吸取 Mi 官方精华) ---
+
+  // =====================================================================
+  // 1. 全局核心配置
+  // =====================================================================
   config["ipv6"] = true;
   config["prefer-ipv6"] = false;
   config["tcp-concurrent"] = true;
   config["unified-delay"] = true;
   config["find-process-mode"] = "strict";
-
   config["profile"] = {
     "store-selected": true,
     "store-fake-ip": true
   };
 
-  // --- 2. 域名嗅探 (解决透明代理局域网分流) ---
+  // =====================================================================
+  // 2. 域名嗅探
+  // =====================================================================
   config["sniffer"] = {
     "enable": true,
     "force-dns-mapping": true,
     "parse-pure-ip": true,
     "override-destination": true,
     "sniff": {
-      "HTTP": { "ports": [80, "8080-8880"], "override-destination": true },
+      "HTTP": { "ports": [80, 8080, 8880], "override-destination": true },
       "TLS": { "ports": [443, 8443] },
       "QUIC": { "ports": [443, 8443] }
     },
-    "skip-domain": ["Mijia Cloud", "+.oray.com", "captive.apple.com", "+.push.apple.com"]
-  };
-
-  // --- 3. TUN 模式安全配置 ---
-  config["tun"] = {
-    "enable": true,
-    "stack": "mixed", // PC端mixed性能更好，Mi端会自动处理
-    "auto-route": true,
-    "auto-detect-interface": true,
-    "strict-route": true, // 防止DNS和流量泄漏
-    "endpoint-independent-nat": true, // 改善游戏联机 NAT 类型
-    "dns-hijack": ["any:53", "tcp://any:53"],
-    "route-exclude-address": [
-      "192.168.0.0/16", "10.0.0.0/8", "172.16.0.0/12", "127.0.0.0/8",
-      "169.254.0.0/16", "224.0.0.0/4", "255.255.255.255/32",
-      "100.64.0.0/10", "fe80::/10", "ff00::/8", "::ffff:0:0/96", "::1/128"
+    "skip-domain": [
+      "Mijia Cloud", "+.oray.com",
+      "captive.apple.com", "+.push.apple.com"
     ]
   };
 
-  // --- 4. GEO 数据源 (官方直连源) ---
+  // =====================================================================
+  // 3. TUN 模式
+  // =====================================================================
+  config["tun"] = {
+    "enable": true,
+    "stack": "mixed",
+    "auto-route": true,
+    "auto-detect-interface": true,
+    "strict-route": true,
+    "endpoint-independent-nat": false,
+    "dns-hijack": ["any:53", "tcp://any:53"],
+    "route-exclude-address": [
+      "192.168.0.0/16", "10.0.0.0/8", "172.16.0.0/12",
+      "127.0.0.0/8", "169.254.0.0/16", "224.0.0.0/4",
+      "255.255.255.255/32", "100.64.0.0/10",
+      "fe80::/10", "ff00::/8", "::ffff:0:0/96", "::1/128"
+    ]
+  };
+
+  // =====================================================================
+  // 4. GEO 数据源
+  // =====================================================================
   config["geodata-mode"] = true;
   config["geo-auto-update"] = true;
   config["geodata-loader"] = "memconservative";
@@ -72,40 +163,100 @@ function main(config) {
     "asn": "https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/release/GeoLite2-ASN.mmdb"
   };
 
-  // --- 5. DNS 高阶配置 (融合 Mi 官方白名单与 Script B 分流) ---
+  // =====================================================================
+  // 5. DNS 高阶配置
+  // =====================================================================
   config.dns = {
     "enable": true,
     "ipv6": true,
-    "prefer-h3": true, // 开启 HTTP/3 DNS 加速
-    "cache-algorithm": "arc", // 命中率更高的缓存算法
+    "prefer-h3": true,
+    "cache-algorithm": "arc",
     "enhanced-mode": "fake-ip",
-    "fake-ip-range": "198.18.0.1/16", // 国际保留网段，防Docker冲突
-    "respect-rules": true,
+    "fake-ip-range": "198.18.0.1/16",
+    "respect-rules": false,
     "default-nameserver": ["223.5.5.5", "119.29.29.29"],
-    "nameserver": ["https://8.8.8.8/dns-query", "https://1.1.1.1/dns-query"],
-    "proxy-server-nameserver": ["https://223.5.5.5/dns-query", "119.29.29.29"],
+    "nameserver": [
+      "https://8.8.8.8/dns-query",
+      "https://1.1.1.1/dns-query"
+    ],
+    "proxy-server-nameserver": [
+      "223.5.5.5",
+      "119.29.29.29"
+    ],
     "nameserver-policy": {
-      "geosite:cn,private": ["https://223.5.5.5/dns-query", "119.29.29.29"]
+      "geosite:cn,private": ["223.5.5.5", "119.29.29.29"],
+      "+.apple.com": ["223.5.5.5", "119.29.29.29"],
+      "+.icloud.com": ["223.5.5.5", "119.29.29.29"],
+      "+.push.apple.com": ["223.5.5.5", "119.29.29.29"],
+      "+.microsoft.com": ["223.5.5.5", "119.29.29.29"],
+      "+.windows.com": ["223.5.5.5", "119.29.29.29"]
     },
-    // 【神级白名单】整合了支付防风控、系统时间对齐、主机游戏 STUN、国内流媒体 CDN 纠偏
     "fake-ip-filter": [
-      "+.weixin.com", "+.wx.qq.com", "+.servicewechat.com", "+.alipay.com", "+.unionpay.com", "+.tenpay.com", // 支付
-      "localhost", "+.local", "+.lan", "WORKGROUP", // 局域网
-      "time.*.com", "time.*.gov", "time.*.edu.cn", "time.*.apple.com", "time-ios.apple.com", // 苹果/国际时间
-      "ntp.*.com", "*.time.edu.cn", "*.ntp.org.cn", "*.pool.ntp.org", "time1.cloud.tencent.com", // NTP对时
-      "*.msftncsi.com", "*.msftconnecttest.com", "captive.apple.com", // 微软/苹果网络探测
-      "*.mcdn.bilivideo.cn", "+.bilibili.com", "+.bilicdn.com", "+.bilivideo.com", // B站 CDN
-      "+.market.xiaomi.com", "+.services.googleapis.cn" // 国内商店推送
+      "+.weixin.com", "+.wx.qq.com", "+.servicewechat.com",
+      "+.alipay.com", "+.unionpay.com", "+.tenpay.com",
+      "localhost", "+.local", "+.lan", "*.localdomain",
+      "time.apple.com", "time1.apple.com", "time2.apple.com",
+      "time3.apple.com", "time4.apple.com", "time5.apple.com",
+      "time6.apple.com", "time7.apple.com", "time-ios.apple.com",
+      "time.cloudflare.com", "time.windows.com",
+      "0.pool.ntp.org", "1.pool.ntp.org", "2.pool.ntp.org", "3.pool.ntp.org",
+      "0.cn.pool.ntp.org", "1.cn.pool.ntp.org", "2.cn.pool.ntp.org", "3.cn.pool.ntp.org",
+      "+.ntp.org.cn", "+.time.edu.cn",
+      "time1.cloud.tencent.com", "time2.cloud.tencent.com",
+      "time3.cloud.tencent.com", "time4.cloud.tencent.com", "time5.cloud.tencent.com",
+      "ntp.aliyun.com", "ntp1.aliyun.com", "ntp2.aliyun.com",
+      "ntp3.aliyun.com", "ntp4.aliyun.com", "ntp5.aliyun.com",
+      "ntp6.aliyun.com", "ntp7.aliyun.com",
+      "+.msftncsi.com", "+.msftconnecttest.com", "captive.apple.com",
+      "+.battlenet.com.cn", "+.blzstatic.cn", "+.battle.net",
+      "+.xboxlive.com", "+.playfabapi.com",
+      "+.playstation.net", "+.playstation.com",
+      "+.nintendo.net",
+      "+.mcdn.bilivideo.cn", "+.bilibili.com",
+      "+.bilicdn.com", "+.bilivideo.com",
+      "+.market.xiaomi.com", "+.services.googleapis.cn",
+      "stun.nextcloud.com",
+      "stun.talk.nextcloud.com",
+      "stun.l.google.com",
+      "stun1.l.google.com",
+      "stun2.l.google.com",
+      "stun3.l.google.com",
+      "stun4.l.google.com",
+      "stun.services.mozilla.com",
+      "stun.cloudflare.com",
+      "stun.miwifi.com",
+      "stun.hitv.com",
+      "stun.m2m.orange.com",
+      "global.stun.twilio.com",
+      "global.turn.twilio.com"
     ]
   };
 
-  // --- 6. 动态规则集 Providers ---
+  // =====================================================================
+  // 6. 规则集 Providers
+  // =====================================================================
   var proxyUrlPrefix = "https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/meta/geo";
   var providers = {
-    "category-ads-all": { "type": "http", "format": "mrs", "behavior": "domain", "url": proxyUrlPrefix + "/geosite/category-ads-all.mrs", "path": "./ruleset/category-ads-all.mrs", "interval": 86400 },
-    "cn": { "type": "http", "format": "mrs", "behavior": "domain", "url": proxyUrlPrefix + "/geosite/cn.mrs", "path": "./ruleset/cn.mrs", "interval": 86400 },
-    "private-ip": { "type": "http", "format": "mrs", "behavior": "ipcidr", "url": proxyUrlPrefix + "/geoip/private.mrs", "path": "./ruleset/private-ip.mrs", "interval": 86400 },
-    "cn-ip": { "type": "http", "format": "mrs", "behavior": "ipcidr", "url": proxyUrlPrefix + "/geoip/cn.mrs", "path": "./ruleset/cn-ip.mrs", "interval": 86400 }
+    "category-ads-all": {
+      "type": "http", "format": "mrs", "behavior": "domain",
+      "url": proxyUrlPrefix + "/geosite/category-ads-all.mrs",
+      "path": "./ruleset/category-ads-all.mrs", "interval": 86400
+    },
+    "cn": {
+      "type": "http", "format": "mrs", "behavior": "domain",
+      "url": proxyUrlPrefix + "/geosite/cn.mrs",
+      "path": "./ruleset/cn.mrs", "interval": 86400
+    },
+    "private-ip": {
+      "type": "http", "format": "mrs", "behavior": "ipcidr",
+      "url": proxyUrlPrefix + "/geoip/private.mrs",
+      "path": "./ruleset/private-ip.mrs", "interval": 86400
+    },
+    "cn-ip": {
+      "type": "http", "format": "mrs", "behavior": "ipcidr",
+      "url": proxyUrlPrefix + "/geoip/cn.mrs",
+      "path": "./ruleset/cn-ip.mrs", "interval": 86400
+    }
   };
 
   if (ruleOptions.ai) providers["category-ai-!cn"] = { "type": "http", "format": "mrs", "behavior": "domain", "url": proxyUrlPrefix + "/geosite/category-ai-!cn.mrs", "path": "./ruleset/category-ai-!cn.mrs", "interval": 86400 };
@@ -124,37 +275,15 @@ function main(config) {
   }
   config["rule-providers"] = providers;
 
-  // --- 7. 代理组逻辑 (20+ 国家兜底识别 & 正则性能优化) ---
+  // =====================================================================
+  // 7. 代理分组
+  // =====================================================================
   var proxies = config.proxies || [];
-  // 覆盖主流 20+ 个国家与地区
-  var regionFilters = [
-    { name: "🇺🇸 美国节点", regex: "美|us|united states|america" },
-    { name: "🇨🇭 瑞士节点", regex: "瑞士|rs|switzerland" },
-    { name: "🇭🇰 香港节点", regex: "港|hk|hongkong|hong kong" },
-    { name: "🇯🇵 日本节点", regex: "日|jp|japan" },
-    { name: "🇹🇼 台湾节点", regex: "台|tw|taiwan" },
-    { name: "🇸🇬 新加坡节点", regex: "新|sg|singapore" },
-    { name: "🇰🇷 韩国节点", regex: "韩|kr|korea" },
-    { name: "🇬🇧 英国节点", regex: "英|uk|united kingdom|britain" },
-    { name: "🇩🇪 德国节点", regex: "德|de|germany" },
-    { name: "🇫🇷 法国节点", regex: "法|fr|france" },
-    { name: "🇲🇾 马来节点", regex: "马来|my|malaysia" },
-    { name: "🇹🇷 土耳其节点", regex: "土耳其|tr|turkey" },
-    { name: "🇨🇦 加拿大节点", regex: "加|ca|canada" },
-    { name: "🇦🇺 澳洲节点", regex: "澳|au|australia" },
-    { name: "🇳🇱 荷兰节点", regex: "荷|nl|netherlands" },
-    { name: "🇮🇳 印度节点", regex: "印|in|india" },
-    { name: "🇷🇺 俄罗斯节点", regex: "俄|ru|russia" },
-    { name: "🇦🇷 阿根廷节点", regex: "阿根廷|ar|argentina" },
-    { name: "🇵🇱 波兰节点", regex: "波兰|pl|poland" },
-    { name: "🇮🇹 意大利节点", regex: "意|it|italy" }
-  ];
 
   for (var i = 0; i < regionFilters.length; i++) {
     regionFilters[i].compiledRegex = new RegExp(regionFilters[i].regex, "i");
   }
 
-  var activeRegions = [];
   var unMatchedProxies = [];
   for (var j = 0; j < proxies.length; j++) {
     var pName = proxies[j].name;
@@ -169,6 +298,7 @@ function main(config) {
     if (!isMatched) unMatchedProxies.push(pName);
   }
 
+  var activeRegions = [];
   for (var m = 0; m < regionFilters.length; m++) {
     if (regionFilters[m].hasProxy) activeRegions.push(regionFilters[m]);
   }
@@ -180,36 +310,101 @@ function main(config) {
   }
   if (unMatchedProxies.length > 0) regionNames.push("🌍 其他节点");
 
-  var commonProxies = ["🚀 节点选择"].concat(regionNames).concat(["🖐️ 手动切换"]);
+  var commonProxies = [
+    "🚀 节点选择",
+    "⚡ 自动选择",
+    "⚖️ 负载均衡",
+    "🔯 故障转移",
+    "🖐️ 手动切换",
+    "DIRECT"
+  ];
+
   config["proxy-groups"] = [
-    { "name": "🚀 节点选择", "type": "select", "proxies": ["⚡ 自动选择", "🖐️ 手动切换", "DIRECT", "REJECT"] },
-    { "name": "⚡ 自动选择", "type": "select", "proxies": regionNames },
-    { "name": "🖐️ 手动切换", "type": "select", "include-all": true },
-    { "name": "🏠 私有网络", "type": "select", "proxies": ["DIRECT", "🚀 节点选择", "⚡ 自动选择", "🖐️ 手动切换"] }
+    withIcon({
+      "name": "🚀 节点选择",
+      "type": "select",
+      "proxies": [
+        "⚡ 自动选择",
+        "⚖️ 负载均衡",
+        "🔯 故障转移",
+        "🖐️ 手动切换",
+        "DIRECT",
+        "REJECT"
+      ]
+    }),
+
+    withIcon({
+      "name": "⚡ 自动选择",
+      "type": "select",
+      "proxies": regionNames.concat(["DIRECT"]),
+    }),
+
+    withIcon({
+      "name": "⚖️ 负载均衡",
+      "type": "load-balance",
+      "include-all-proxies": true,
+      "strategy": "consistent-hashing",
+      "url": "https://www.gstatic.com/generate_204",
+      "interval": 300,
+      "timeout": 3000,
+      "lazy": true
+    }),
+
+    withIcon({
+      "name": "🔯 故障转移",
+      "type": "fallback",
+      "include-all-proxies": true,
+      "url": "https://www.gstatic.com/generate_204",
+      "interval": 180,
+      "timeout": 3000,
+      "lazy": true,
+      "max-failed-times": 2 // [v9-3] 失败 2 次就判定死亡
+    }),
+
+    withIcon({
+      "name": "🖐️ 手动切换",
+      "type": "select",
+      "include-all": true
+    }),
+
+    withIcon({
+      "name": "🏠 私有网络",
+      "type": "select",
+      "proxies": ["DIRECT", "🚀 节点选择", "⚡ 自动选择", "🖐️ 手动切换"]
+    })
   ];
 
   for (var rIndex = 0; rIndex < activeRegions.length; rIndex++) {
     var region = activeRegions[rIndex];
-    config["proxy-groups"].push({
+    config["proxy-groups"].push(withIcon({
       "name": region.name,
       "type": "url-test",
       "include-all": true,
-      "filter": "(?i)" + region.regex,
-      "url": "https://edge.microsoft.com/captiveportal/generate_204",
-      "interval": 600,
-      "timeout": 5000,
+      "filter": region.filterRegex,
+      "exclude-type": "direct|reject",
+      "url": "https://www.gstatic.com/generate_204",
+      "interval": 300,
+      "timeout": 3000,
       "lazy": true,
       "max-failed-times": 2,
       "expected-status": 204,
       "tolerance": 50
-    });
+    }));
   }
 
   if (unMatchedProxies.length > 0) {
-    config["proxy-groups"].push({
-      "name": "🌍 其他节点", "type": "url-test", "proxies": unMatchedProxies,
-      "url": "https://edge.microsoft.com/captiveportal/generate_204", "interval": 600, "timeout": 5000, "lazy": true, "max-failed-times": 2, "expected-status": 204, "tolerance": 50
-    });
+    config["proxy-groups"].push(withIcon({
+      "name": "🌍 其他节点",
+      "type": "url-test",
+      "proxies": unMatchedProxies,
+      "url": "https://www.gstatic.com/generate_204",
+      "interval": 300,
+      "timeout": 3000,
+      "lazy": true,
+      "max-failed-times": 2,
+      "expected-status": 204,
+      "tolerance": 50
+    }));
   }
 
   var activeBusinessGroups = [];
@@ -228,48 +423,117 @@ function main(config) {
 
   for (var b = 0; b < activeBusinessGroups.length; b++) {
     var groupName = activeBusinessGroups[b];
-    var groupProxies = commonProxies.slice();
-    if (groupName === "Ⓜ️ 微软服务" || groupName === "🍏 苹果服务") groupProxies.push("DIRECT");
-    config["proxy-groups"].push({ "name": groupName, "type": "select", "proxies": groupProxies });
+    var groupProxies = commonProxies.concat(regionNames);
+    if (groupName === "Ⓜ️ 微软服务" || groupName === "🍏 苹果服务") {
+      groupProxies.push("REJECT");
+    }
+    config["proxy-groups"].push(withIcon({
+      "name": groupName,
+      "type": "select",
+      "proxies": groupProxies
+    }));
   }
 
-  // --- 8. 精准路由分流 Rules ---
+  // =====================================================================
+  // 8. 路由分流规则
+  // =====================================================================
   var rules = [
-    "DOMAIN-SUFFIX,weixin.com,DIRECT", "DOMAIN-SUFFIX,wx.qq.com,DIRECT", "DOMAIN-SUFFIX,servicewechat.com,DIRECT",
-    "DOMAIN-SUFFIX,alipay.com,DIRECT", "DOMAIN-SUFFIX,unionpay.com,DIRECT", "DOMAIN-SUFFIX,tenpay.com,DIRECT",
-    "DOMAIN,localhost,DIRECT", "DOMAIN-SUFFIX,local,DIRECT", "DOMAIN-SUFFIX,lan,DIRECT", "DOMAIN,captive.apple.com,DIRECT",
-    "RULE-SET,private-ip,🏠 私有网络,no-resolve",
+    // [v9-1] 🔴 彻底剿灭 Apple Private Relay 导致的 DNS 死锁！
+    "DOMAIN,mask.icloud.com,REJECT",
+    "DOMAIN,mask-h2.icloud.com,REJECT",
+    "DOMAIN,mask-api.icloud.com,REJECT",
+    "DOMAIN,apple-relay.cloudflare.com,REJECT",
+    "DOMAIN,apple-relay.apple.com,REJECT",
 
-    // 强力防泄漏: 屏蔽 QUIC 和 P2P/WebRTC 通讯
-    "DST-PORT,3478,REJECT", "DST-PORT,3479,REJECT", "DST-PORT,3480,REJECT", "DST-PORT,3481,REJECT",
-    "DST-PORT,19302,REJECT", "DST-PORT,19305,REJECT", "DST-PORT,5349,REJECT",
-    "DOMAIN-KEYWORD,stun,REJECT", "DOMAIN-KEYWORD,turn,REJECT",
-    "AND,((NETWORK,UDP),(DST-PORT,443)),REJECT",
+    "DOMAIN,stun.nextcloud.com,REJECT",
+    "DOMAIN,stun.talk.nextcloud.com,REJECT",
+    "DOMAIN,stun.l.google.com,REJECT",
+    "DOMAIN,stun1.l.google.com,REJECT",
+    "DOMAIN,stun2.l.google.com,REJECT",
+    "DOMAIN,stun3.l.google.com,REJECT",
+    "DOMAIN,stun4.l.google.com,REJECT",
+    "DOMAIN,stun.services.mozilla.com,REJECT",
+    "DOMAIN,stun.cloudflare.com,REJECT",
+    "DOMAIN,turn.cloudflare.com,REJECT",
+    "DOMAIN,stun.miwifi.com,REJECT",
+    "DOMAIN,stun.hitv.com,REJECT",
+    "DOMAIN,stun.m2m.orange.com,REJECT",
+    "DOMAIN,global.stun.twilio.com,REJECT",
+    "DOMAIN,global.turn.twilio.com,REJECT",
+    "DOMAIN-SUFFIX,twilio.com,🚀 节点选择",
+    "DOMAIN-SUFFIX,coturn.net,REJECT",
+    "DOMAIN-SUFFIX,metered.ca,REJECT",
+    "DOMAIN,turn.anyfirewall.com,REJECT",
+
+    "AND,(NETWORK,UDP),(DST-PORT,3478),REJECT",
+    "AND,(NETWORK,TCP),(DST-PORT,3478),REJECT",
+    "AND,(NETWORK,UDP),(DST-PORT,19302),REJECT",
+    "AND,(NETWORK,TCP),(DST-PORT,19302),REJECT",
+    "AND,(NETWORK,UDP),(DST-PORT,5349),REJECT",
+    "AND,(NETWORK,TCP),(DST-PORT,5349),REJECT",
+
+    "DOMAIN-SUFFIX,weixin.com,DIRECT",
+    "DOMAIN-SUFFIX,wx.qq.com,DIRECT",
+    "DOMAIN-SUFFIX,servicewechat.com,DIRECT",
+    "DOMAIN-SUFFIX,alipay.com,DIRECT",
+    "DOMAIN-SUFFIX,unionpay.com,DIRECT",
+    "DOMAIN-SUFFIX,tenpay.com,DIRECT",
+    "DOMAIN,localhost,DIRECT",
+    "DOMAIN-SUFFIX,local,DIRECT",
+    "DOMAIN-SUFFIX,lan,DIRECT",
+    "DOMAIN,captive.apple.com,DIRECT",
+    "RULE-SET,private-ip,🏠 私有网络",
     "RULE-SET,category-ads-all,REJECT"
   ];
 
   if (ruleOptions.finance) {
     rules = rules.concat([
-      "DOMAIN-KEYWORD,wise,💰 金融服务", "DOMAIN-SUFFIX,wise.help,💰 金融服务", "DOMAIN-SUFFIX,wiseassets.com,💰 金融服务",
-      "DOMAIN-SUFFIX,transferwise.com,💰 金融服务", "DOMAIN-KEYWORD,stripe,💰 金融服务", "DOMAIN-SUFFIX,stripe.network,💰 金融服务",
-      "DOMAIN-SUFFIX,link.com,💰 金融服务", "DOMAIN-SUFFIX,hcaptcha.com,💰 金融服务", "DOMAIN-SUFFIX,sprig.com,💰 金融服务",
-      "DOMAIN-KEYWORD,dukascopy,💰 金融服务", "DOMAIN-SUFFIX,dukas.io,💰 金融服务", "DOMAIN-SUFFIX,jforex.net,💰 金融服务", "DOMAIN-SUFFIX,trading-platform.info,💰 金融服务"
+      "DOMAIN-SUFFIX,wise.com,💰 金融服务",
+      "DOMAIN-SUFFIX,wise.help,💰 金融服务",
+      "DOMAIN-SUFFIX,wiseassets.com,💰 金融服务",
+      "DOMAIN-SUFFIX,transferwise.com,💰 金融服务",
+      "DOMAIN-SUFFIX,stripe.com,💰 金融服务",
+      "DOMAIN-SUFFIX,stripe.network,💰 金融服务",
+      "DOMAIN-SUFFIX,hcaptcha.com,💰 金融服务",
+      "DOMAIN-SUFFIX,sprig.com,💰 金融服务",
+      "DOMAIN-SUFFIX,dukascopy.com,💰 金融服务",
+      "DOMAIN-SUFFIX,dukas.io,💰 金融服务",
+      "DOMAIN-SUFFIX,jforex.net,💰 金融服务",
+      "DOMAIN-SUFFIX,trading-platform.info,💰 金融服务",
+      "DOMAIN-SUFFIX,paypal.com,💰 金融服务",
+      "DOMAIN-SUFFIX,paypalobjects.com,💰 金融服务"
     ]);
   }
+
   if (ruleOptions.crypto) {
     rules = rules.concat([
-      "DOMAIN-KEYWORD,binance,🤝 交易所", "DOMAIN-SUFFIX,bnbstatic.com,🤝 交易所", "DOMAIN-SUFFIX,bntrace.com,🤝 交易所",
-      "DOMAIN-SUFFIX,bsappapi.com,🤝 交易所", "DOMAIN-SUFFIX,nftstatic.com,🤝 交易所", "DOMAIN-SUFFIX,binance.me,🤝 交易所",
-      "DOMAIN-KEYWORD,okx,🤝 交易所", "DOMAIN-SUFFIX,okx.com,🤝 交易所", "DOMAIN-SUFFIX,oklink.com,🤝 交易所",
-      "DOMAIN-KEYWORD,kraken,🤝 交易所", "DOMAIN-SUFFIX,kraken.com,🤝 交易所", "DOMAIN-SUFFIX,kraken.pro,🤝 交易所",
-      "RULE-SET,okx,🤝 交易所", "RULE-SET,binance,🤝 交易所", "RULE-SET,kraken,🤝 交易所"
+      "DOMAIN-SUFFIX,okx.com,🤝 交易所",
+      "DOMAIN-SUFFIX,oklink.com,🤝 交易所",
+      "DOMAIN-SUFFIX,okx.io,🤝 交易所",
+      "DOMAIN-KEYWORD,binance,🤝 交易所",
+      "DOMAIN-SUFFIX,bnbstatic.com,🤝 交易所",
+      "DOMAIN-SUFFIX,bntrace.com,🤝 交易所",
+      "DOMAIN-SUFFIX,bsappapi.com,🤝 交易所",
+      "DOMAIN-SUFFIX,nftstatic.com,🤝 交易所",
+      "DOMAIN-SUFFIX,binance.me,🤝 交易所",
+      "DOMAIN-SUFFIX,kraken.com,🤝 交易所",
+      "DOMAIN-SUFFIX,futures.kraken.com,🤝 交易所",
+      "RULE-SET,okx,🤝 交易所",
+      "RULE-SET,binance,🤝 交易所",
+      "RULE-SET,kraken,🤝 交易所"
     ]);
   }
+
   if (ruleOptions.ai) {
     rules = rules.concat([
-      "DOMAIN-KEYWORD,gemini,💬 AI 服务", "DOMAIN-KEYWORD,aistudio,💬 AI 服务", "DOMAIN-KEYWORD,notebooklm,💬 AI 服务",
-      "DOMAIN-SUFFIX,generativelanguage.googleapis.com,💬 AI 服务", "DOMAIN-SUFFIX,deepmind.com,💬 AI 服务",
-      "DOMAIN-SUFFIX,labs.google,💬 AI 服务", "DOMAIN-SUFFIX,ai.google.dev,💬 AI 服务", "RULE-SET,category-ai-!cn,💬 AI 服务"
+      "DOMAIN-SUFFIX,gemini.google.com,💬 AI 服务",
+      "DOMAIN-SUFFIX,aistudio.google.com,💬 AI 服务",
+      "DOMAIN-SUFFIX,notebooklm.google.com,💬 AI 服务",
+      "DOMAIN-SUFFIX,generativelanguage.googleapis.com,💬 AI 服务",
+      "DOMAIN-SUFFIX,deepmind.com,💬 AI 服务",
+      "DOMAIN-SUFFIX,labs.google,💬 AI 服务",
+      "DOMAIN-SUFFIX,ai.google.dev,💬 AI 服务",
+      "RULE-SET,category-ai-!cn,💬 AI 服务"
     ]);
   }
 
@@ -282,12 +546,14 @@ function main(config) {
   if (ruleOptions.netflix) rules.push("RULE-SET,netflix,🎬 流媒体");
   if (ruleOptions.telegram) rules.push("RULE-SET,telegram-ip,📲 电报消息,no-resolve");
 
+  rules.push("DOMAIN-SUFFIX,nextcloud.com,🚀 节点选择");
+
   rules = rules.concat([
     "RULE-SET,cn,DIRECT",
-    "RULE-SET,cn-ip,DIRECT,no-resolve",
+    "RULE-SET,cn-ip,DIRECT",
     "MATCH,🐟 漏网之鱼"
   ]);
-  config["rules"] = rules;
 
+  config["rules"] = rules;
   return config;
 }
