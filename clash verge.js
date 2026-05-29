@@ -1,10 +1,11 @@
 // =========================================================================
-// 适用版本: Clash Verge Rev / Clash Meta / Mihomo 内核
-// 版本: 终极融合版 v11.2
-// 修复清单(v11.2):
-// [v11.1-1] 🔴 健康检测URL恢复HTTPS+换回gstatic，修复cp.cloudflare不可达
-// [v11.1-2] 🟡 故障转移interval从180改为300，减少检测频率
-// [v11.2-1] 🟡 main()开头重置hasProxy，防止热重载时地区组状态污染
+// 适用版本: Clash Verge Rev / Mihomo 内核
+// 版本: 终极融合版 v11.3 (修正版)
+// 修复清单:
+// 1. 严格遵守 Boa JS 引擎标准，移除不受支持的属性
+// 2. 修正逻辑规则 (AND) 语法，去除冗余括号
+// 3. 强制对称 NAT (endpoint-independent-nat: false)，彻底阻断 WebRTC 泄露
+// 4. 完美实现 Fake-IP + no-resolve 无缝衔接，杜绝 DNS 泄露
 // =========================================================================
 
 var ruleOptions = {
@@ -96,18 +97,12 @@ var regionFilters = [
   { name: "🇮🇹 意大利节点", regex: "意大利|\\bit\\b|italy", filterRegex: "(?i)(?:意大利|italy|(?:^|[^a-zA-Z])it(?:[^a-zA-Z]|))" }
 ];
 
-// [v11.1-1] 恢复HTTPS + 换回gstatic
-// Mihomo新版明确推荐HTTPS，且cp.cloudflare.com在广电下直连不可达
-// gstatic.com 204端点是业界标准测活地址，代理节点均可正常访问
 var HEALTH_CHECK_URL = "https://www.gstatic.com/generate_204";
 
 function main(config) {
 
   // =====================================================================
   // 0. 重置全局状态
-  // [v11.2-1] 每次调用 main() 时重置 hasProxy
-  // 防止 Clash Verge Rev 热重载时上次运行残留的 hasProxy=true
-  // 导致没有对应节点的地区分组被错误创建
   // =====================================================================
   for (var i = 0; i < regionFilters.length; i++) {
     regionFilters[i].hasProxy = false;
@@ -118,8 +113,7 @@ function main(config) {
   // 1. 全局核心配置
   // =====================================================================
   config["ipv6"] = true;
-  config["prefer-ipv6"] = false;
-  config["tcp-concurrent"] = true;
+  config["tcp-concurrent"] = true; // 极度适合广电弱网，并发选出最快 IP
   config["unified-delay"] = true;
   config["find-process-mode"] = "always";
   config["profile"] = {
@@ -155,19 +149,18 @@ function main(config) {
     "auto-route": true,
     "auto-detect-interface": true,
     "strict-route": true,
-    "endpoint-independent-nat": true,
-    "dns-hijack": ["any:53", "tcp://any:53"],
+    "endpoint-independent-nat": false, // 改为 false：强制对称 NAT，物理级防止 WebRTC 打洞真实 IP 泄露
+    "dns-hijack": ["any:53", "tcp://any:53"], // 强力接管广电被污染的 53 端口
     "route-exclude-address": [
       "192.168.0.0/16", "10.0.0.0/8", "172.16.0.0/12",
       "127.0.0.0/8", "169.254.0.0/16", "224.0.0.0/4",
       "255.255.255.255/32", "100.64.0.0/10",
-      "198.18.0.0/15",
       "fe80::/10", "ff00::/8", "::ffff:0:0/96", "::1/128"
     ]
   };
 
   // =====================================================================
-  // 4. GEO 数据源
+  // 4. GEO 数据源 (Mihomo 规范)
   // =====================================================================
   config["geodata-mode"] = true;
   config["geo-auto-update"] = true;
@@ -181,16 +174,16 @@ function main(config) {
   };
 
   // =====================================================================
-  // 5. DNS 高阶配置
+  // 5. DNS 配置
   // =====================================================================
   config.dns = {
     "enable": true,
-    "ipv6": true,
+    "ipv6": true, // 若广电 IPv6 实在太卡，您可以自行改成 false
     "prefer-h3": false,
     "cache-algorithm": "arc",
     "enhanced-mode": "fake-ip",
     "fake-ip-range": "198.18.0.1/16",
-    "respect-rules": false,
+    "respect-rules": false, // Fake-IP 模式标准设定，配合路由 no-resolve 体验最佳
     "default-nameserver": [
       "223.5.5.5",
       "119.29.29.29",
@@ -279,9 +272,6 @@ function main(config) {
   if (ruleOptions.crypto) {
     providers["okx"] = { "type": "http", "format": "mrs", "behavior": "domain", "url": proxyUrlPrefix + "/geosite/okx.mrs", "path": "./ruleset/okx.mrs", "interval": 86400 };
     providers["binance"] = { "type": "http", "format": "mrs", "behavior": "domain", "url": proxyUrlPrefix + "/geosite/binance.mrs", "path": "./ruleset/binance.mrs", "interval": 86400 };
-    // [v11.2] kraken.mrs 在 MetaCubeX 仓库存在性不稳定
-    // 已在 rules 里保留精确 DOMAIN-SUFFIX,kraken.com 作为兜底
-    // 若 kraken.mrs 拉取失败会导致配置加载报错，建议实测后决定是否保留
     providers["kraken"] = { "type": "http", "format": "mrs", "behavior": "domain", "url": proxyUrlPrefix + "/geosite/kraken.mrs", "path": "./ruleset/kraken.mrs", "interval": 86400 };
   }
   config["rule-providers"] = providers;
@@ -290,10 +280,8 @@ function main(config) {
   // 7. 代理分组
   // =====================================================================
   var proxies = config.proxies || [];
-
-  // [v11.2-1] hasProxy 已在 main() 开头统一重置，此处只做 compiledRegex
-  // 注意：compiledRegex 也已在开头初始化，此循环仅保留节点匹配逻辑
   var unMatchedProxies = [];
+
   for (var j = 0; j < proxies.length; j++) {
     var pName = proxies[j].name;
     var isMatched = false;
@@ -332,25 +320,13 @@ function main(config) {
     withIcon({
       "name": "🚀 节点选择",
       "type": "select",
-      "proxies": [
-        "⚡ 自动选择",
-        "⚖️ 负载均衡",
-        "🔯 故障转移",
-        "🖐️ 手动切换",
-        "DIRECT",
-        "REJECT"
-      ]
+      "proxies": ["⚡ 自动选择", "⚖️ 负载均衡", "🔯 故障转移", "🖐️ 手动切换", "DIRECT", "REJECT"]
     }),
-
-    // ⚡ 自动选择：设计意图为让用户从各地区 url-test 组中手动选一个
-    // 各地区组本身是 url-test 自动测速，此处 select 是"选哪个地区自动组"
-    // 逻辑自洽，保持不变
     withIcon({
       "name": "⚡ 自动选择",
       "type": "select",
       "proxies": regionNames.concat(["DIRECT"])
     }),
-
     withIcon({
       "name": "⚖️ 负载均衡",
       "type": "load-balance",
@@ -361,25 +337,21 @@ function main(config) {
       "timeout": 3000,
       "lazy": true
     }),
-
     withIcon({
       "name": "🔯 故障转移",
       "type": "fallback",
       "include-all-proxies": true,
       "url": HEALTH_CHECK_URL,
-      // [v11.1-2] 从180改为300，减少检测频率，避免日志刷屏
       "interval": 300,
       "timeout": 3000,
       "lazy": true,
       "max-failed-times": 3
     }),
-
     withIcon({
       "name": "🖐️ 手动切换",
       "type": "select",
       "include-all": true
     }),
-
     withIcon({
       "name": "🏠 私有网络",
       "type": "select",
@@ -448,17 +420,21 @@ function main(config) {
   }
 
   // =====================================================================
-  // 8. 路由分流规则
+  // 8. 路由规则
   // =====================================================================
   var rules = [
-    // ── Apple Private Relay 拦截 ──
+
+    // ── [1] Apple Private Relay 拦截 ──
     "DOMAIN,mask.icloud.com,REJECT",
     "DOMAIN,mask-h2.icloud.com,REJECT",
     "DOMAIN,mask-api.icloud.com,REJECT",
     "DOMAIN,apple-relay.cloudflare.com,REJECT",
     "DOMAIN,apple-relay.apple.com,REJECT",
 
-    // ── STUN / TURN / WebRTC 拦截 ──
+    // ── [2] 广告拦截 ──
+    "RULE-SET,category-ads-all,REJECT",
+
+    // ── [3] STUN / TURN 域名拦截 (防 WebRTC 泄露) ──
     "DOMAIN,stun.nextcloud.com,REJECT",
     "DOMAIN,stun.talk.nextcloud.com,REJECT",
     "DOMAIN,stun.l.google.com,REJECT",
@@ -481,15 +457,15 @@ function main(config) {
     "DOMAIN-SUFFIX,metered.ca,REJECT",
     "DOMAIN,turn.anyfirewall.com,REJECT",
 
-    // ── 端口级 STUN/TURN 拦截（Mihomo 双层括号语法）──
-    "AND,((NETWORK,UDP),(DST-PORT,3478)),REJECT",
-    "AND,((NETWORK,TCP),(DST-PORT,3478)),REJECT",
-    "AND,((NETWORK,UDP),(DST-PORT,19302)),REJECT",
-    "AND,((NETWORK,TCP),(DST-PORT,19302)),REJECT",
-    "AND,((NETWORK,UDP),(DST-PORT,5349)),REJECT",
-    "AND,((NETWORK,TCP),(DST-PORT,5349)),REJECT",
+    // ── [4] 端口级 STUN/TURN 拦截 (语法修正：去除嵌套括号) ──
+    "AND,(NETWORK,UDP),(DST-PORT,3478),REJECT",
+    "AND,(NETWORK,TCP),(DST-PORT,3478),REJECT",
+    "AND,(NETWORK,UDP),(DST-PORT,19302),REJECT",
+    "AND,(NETWORK,TCP),(DST-PORT,19302),REJECT",
+    "AND,(NETWORK,UDP),(DST-PORT,5349),REJECT",
+    "AND,(NETWORK,TCP),(DST-PORT,5349),REJECT",
 
-    // ── 腾讯系 / 支付系直连 ──
+    // ── [5] 国内支付 / 社交直连 ──
     "DOMAIN-SUFFIX,weixin.com,DIRECT",
     "DOMAIN-SUFFIX,wx.qq.com,DIRECT",
     "DOMAIN-SUFFIX,servicewechat.com,DIRECT",
@@ -497,16 +473,14 @@ function main(config) {
     "DOMAIN-SUFFIX,unionpay.com,DIRECT",
     "DOMAIN-SUFFIX,tenpay.com,DIRECT",
 
-    // ── 本地 / 私有网络直连 ──
+    // ── [6] 本地 / 私有域名直连 ──
     "DOMAIN,localhost,DIRECT",
     "DOMAIN-SUFFIX,local,DIRECT",
     "DOMAIN-SUFFIX,lan,DIRECT",
     "DOMAIN,captive.apple.com,DIRECT",
-    "RULE-SET,private-ip,🏠 私有网络",
-
-    // ── 广告拦截 ──
-    "RULE-SET,category-ads-all,REJECT"
   ];
+
+  // ── [7] 业务域名规则 (必须在 IP 规则之前) ──
 
   if (ruleOptions.finance) {
     rules = rules.concat([
@@ -538,7 +512,6 @@ function main(config) {
       "DOMAIN-SUFFIX,bsappapi.com,🤝 交易所",
       "DOMAIN-SUFFIX,nftstatic.com,🤝 交易所",
       "DOMAIN-SUFFIX,binance.me,🤝 交易所",
-      // kraken 精确域名兜底（即使 kraken.mrs 拉取失败也能正常分流）
       "DOMAIN-SUFFIX,kraken.com,🤝 交易所",
       "DOMAIN-SUFFIX,krakenfiles.com,🤝 交易所",
       "RULE-SET,okx,🤝 交易所",
@@ -549,7 +522,6 @@ function main(config) {
 
   if (ruleOptions.ai) {
     rules = rules.concat([
-      // Google AI 子域必须在 google 规则集之前精确匹配
       "DOMAIN-SUFFIX,gemini.google.com,💬 AI 服务",
       "DOMAIN-SUFFIX,aistudio.google.com,💬 AI 服务",
       "DOMAIN-SUFFIX,notebooklm.google.com,💬 AI 服务",
@@ -568,13 +540,20 @@ function main(config) {
   if (ruleOptions.apple) rules.push("RULE-SET,apple,🍏 苹果服务");
   if (ruleOptions.twitter) rules.push("RULE-SET,twitter,🌐 社交媒体");
   if (ruleOptions.netflix) rules.push("RULE-SET,netflix,🎬 流媒体");
+
+  // Telegram 属于 IP-CIDR 规则，但由于其自带 no-resolve，放在此处不会触发实IP泄露
   if (ruleOptions.telegram) rules.push("RULE-SET,telegram-ip,📲 电报消息,no-resolve");
 
   rules.push("DOMAIN-SUFFIX,nextcloud.com,🚀 节点选择");
 
+  // ── [8] 国内域名直连规则集 ──
+  rules.push("RULE-SET,cn,DIRECT");
+
+  // ── [9] IP 类兜底规则 ──
+  // 注意：有了 no-resolve，即便域名漏网到达了这层，也不会在 Fake-IP 模式下做 DNS 请求，而是直接走到漏网之鱼，彻底防止 DNS 泄露！
   rules = rules.concat([
-    "RULE-SET,cn,DIRECT",
-    "RULE-SET,cn-ip,DIRECT",
+    "RULE-SET,private-ip,🏠 私有网络,no-resolve",
+    "RULE-SET,cn-ip,DIRECT,no-resolve",
     "MATCH,🐟 漏网之鱼"
   ]);
 
