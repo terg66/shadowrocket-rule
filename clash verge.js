@@ -1,24 +1,23 @@
 // =========================================================================
 // 适用版本: Clash Verge Rev / Clash Meta / Mihomo 内核
-// 版本: 终极融合版 v9 (广电宽带抗干扰 + Apple Relay 死锁修复)
-// 修复清单(v9新增):
-// [v9-1] 🔴 强制拦截 Apple Private Relay (mask.icloud.com等)，解决彻底断网的 DNS 死锁！
-// [v9-2] 🟢 响应内核警告：测速 URL 全面升级为 https://www.gstatic.com/generate_204 防止广电 HTTP 劫持
-// [v9-3] 🟢 缩短节点健康检查超时时间 (5000ms -> 3000ms)，面对断流时切换更快
+// 版本: 终极融合版 v11.1
+// 修复清单(v11.1):
+// [v11.1-1] 🔴 健康检测URL恢复HTTPS+换回gstatic，修复cp.cloudflare不可达
+// [v11.1-2] 🟡 故障转移interval从180改为300，减少检测频率
 // =========================================================================
 
 var ruleOptions = {
-  finance: true,   // 💰 金融服务
-  crypto: true,    // 🤝 交易所
-  ai: true,        // 💬 AI 服务
-  youtube: true,   // 📹 油管视频
-  google: true,    // 🔍 谷歌服务
-  github: true,    // 🐱 Github
-  microsoft: true, // Ⓜ️ 微软服务
-  apple: true,     // 🍏 苹果服务
-  telegram: true,  // 📲 电报消息
-  twitter: true,   // 🌐 社交媒体
-  netflix: true    // 🎬 流媒体
+  finance: true,
+  crypto: true,
+  ai: true,
+  youtube: true,
+  google: true,
+  github: true,
+  microsoft: true,
+  apple: true,
+  telegram: true,
+  twitter: true,
+  netflix: true
 };
 
 var flagBase = "https://raw.githubusercontent.com/HatScripts/circle-flags/gh-pages/flags/";
@@ -96,6 +95,11 @@ var regionFilters = [
   { name: "🇮🇹 意大利节点", regex: "意大利|\\bit\\b|italy", filterRegex: "(?i)(?:意大利|italy|(?:^|[^a-zA-Z])it(?:[^a-zA-Z]|))" }
 ];
 
+// [v11.1-1] 恢复HTTPS + 换回gstatic
+// Mihomo新版明确推荐HTTPS，且cp.cloudflare.com在广电下直连不可达
+// gstatic.com 204端点是业界标准测活地址，代理节点均可正常访问
+var HEALTH_CHECK_URL = "https://www.gstatic.com/generate_204";
+
 function main(config) {
 
   // =====================================================================
@@ -105,7 +109,7 @@ function main(config) {
   config["prefer-ipv6"] = false;
   config["tcp-concurrent"] = true;
   config["unified-delay"] = true;
-  config["find-process-mode"] = "strict";
+  config["find-process-mode"] = "always";
   config["profile"] = {
     "store-selected": true,
     "store-fake-ip": true
@@ -120,7 +124,7 @@ function main(config) {
     "parse-pure-ip": true,
     "override-destination": true,
     "sniff": {
-      "HTTP": { "ports": [80, 8080, 8880], "override-destination": true },
+      "HTTP": { "ports": [80, 8080, 8880] },
       "TLS": { "ports": [443, 8443] },
       "QUIC": { "ports": [443, 8443] }
     },
@@ -139,12 +143,13 @@ function main(config) {
     "auto-route": true,
     "auto-detect-interface": true,
     "strict-route": true,
-    "endpoint-independent-nat": false,
+    "endpoint-independent-nat": true,
     "dns-hijack": ["any:53", "tcp://any:53"],
     "route-exclude-address": [
       "192.168.0.0/16", "10.0.0.0/8", "172.16.0.0/12",
       "127.0.0.0/8", "169.254.0.0/16", "224.0.0.0/4",
       "255.255.255.255/32", "100.64.0.0/10",
+      "198.18.0.0/15",
       "fe80::/10", "ff00::/8", "::ffff:0:0/96", "::1/128"
     ]
   };
@@ -169,26 +174,29 @@ function main(config) {
   config.dns = {
     "enable": true,
     "ipv6": true,
-    "prefer-h3": true,
+    "prefer-h3": false,
     "cache-algorithm": "arc",
     "enhanced-mode": "fake-ip",
     "fake-ip-range": "198.18.0.1/16",
     "respect-rules": false,
-    "default-nameserver": ["223.5.5.5", "119.29.29.29"],
+    "default-nameserver": [
+      "223.5.5.5",
+      "119.29.29.29",
+      "tcp://223.5.5.5",
+      "tcp://119.29.29.29"
+    ],
     "nameserver": [
-      "https://8.8.8.8/dns-query",
-      "https://1.1.1.1/dns-query"
+      "https://doh.pub/dns-query",
+      "https://dns.alidns.com/dns-query"
     ],
     "proxy-server-nameserver": [
       "223.5.5.5",
-      "119.29.29.29"
+      "119.29.29.29",
+      "tcp://223.5.5.5",
+      "tcp://119.29.29.29"
     ],
     "nameserver-policy": {
-      "geosite:cn,private": ["223.5.5.5", "119.29.29.29"],
-      "+.apple.com": ["223.5.5.5", "119.29.29.29"],
-      "+.icloud.com": ["223.5.5.5", "119.29.29.29"],
-      "+.icloud-content.com": ["223.5.5.5", "119.29.29.29"],  // ← 只加这行
-      "+.apple-cdn.com": ["223.5.5.5", "119.29.29.29"],  // ← 顺手加上防漏
+      "geosite:cn,private": ["223.5.5.5", "119.29.29.29", "tcp://223.5.5.5"],
       "+.push.apple.com": ["223.5.5.5", "119.29.29.29"],
       "+.microsoft.com": ["223.5.5.5", "119.29.29.29"],
       "+.windows.com": ["223.5.5.5", "119.29.29.29"]
@@ -216,21 +224,7 @@ function main(config) {
       "+.nintendo.net",
       "+.mcdn.bilivideo.cn", "+.bilibili.com",
       "+.bilicdn.com", "+.bilivideo.com",
-      "+.market.xiaomi.com", "+.services.googleapis.cn",
-      "stun.nextcloud.com",
-      "stun.talk.nextcloud.com",
-      "stun.l.google.com",
-      "stun1.l.google.com",
-      "stun2.l.google.com",
-      "stun3.l.google.com",
-      "stun4.l.google.com",
-      "stun.services.mozilla.com",
-      "stun.cloudflare.com",
-      "stun.miwifi.com",
-      "stun.hitv.com",
-      "stun.m2m.orange.com",
-      "global.stun.twilio.com",
-      "global.turn.twilio.com"
+      "+.market.xiaomi.com", "+.services.googleapis.cn"
     ]
   };
 
@@ -261,19 +255,19 @@ function main(config) {
     }
   };
 
-  if (ruleOptions.ai) providers["category-ai-!cn"] = { "type": "http", "format": "mrs", "behavior": "domain", "url": proxyUrlPrefix + "/geosite/category-ai-!cn.mrs", "path": "./ruleset/category-ai-!cn.mrs", "interval": 86400 };
-  if (ruleOptions.youtube) providers["youtube"] = { "type": "http", "format": "mrs", "behavior": "domain", "url": proxyUrlPrefix + "/geosite/youtube.mrs", "path": "./ruleset/youtube.mrs", "interval": 86400 };
-  if (ruleOptions.google) providers["google"] = { "type": "http", "format": "mrs", "behavior": "domain", "url": proxyUrlPrefix + "/geosite/google.mrs", "path": "./ruleset/google.mrs", "interval": 86400 };
-  if (ruleOptions.github) providers["github"] = { "type": "http", "format": "mrs", "behavior": "domain", "url": proxyUrlPrefix + "/geosite/github.mrs", "path": "./ruleset/github.mrs", "interval": 86400 };
-  if (ruleOptions.microsoft) providers["microsoft"] = { "type": "http", "format": "mrs", "behavior": "domain", "url": proxyUrlPrefix + "/geosite/microsoft.mrs", "path": "./ruleset/microsoft.mrs", "interval": 86400 };
-  if (ruleOptions.apple) providers["apple"] = { "type": "http", "format": "mrs", "behavior": "domain", "url": proxyUrlPrefix + "/geosite/apple.mrs", "path": "./ruleset/apple.mrs", "interval": 86400 };
-  if (ruleOptions.twitter) providers["twitter"] = { "type": "http", "format": "mrs", "behavior": "domain", "url": proxyUrlPrefix + "/geosite/twitter.mrs", "path": "./ruleset/twitter.mrs", "interval": 86400 };
-  if (ruleOptions.netflix) providers["netflix"] = { "type": "http", "format": "mrs", "behavior": "domain", "url": proxyUrlPrefix + "/geosite/netflix.mrs", "path": "./ruleset/netflix.mrs", "interval": 86400 };
-  if (ruleOptions.telegram) providers["telegram-ip"] = { "type": "http", "format": "mrs", "behavior": "ipcidr", "url": proxyUrlPrefix + "/geoip/telegram.mrs", "path": "./ruleset/telegram-ip.mrs", "interval": 86400 };
+  if (ruleOptions.ai)        providers["category-ai-!cn"] = { "type": "http", "format": "mrs", "behavior": "domain", "url": proxyUrlPrefix + "/geosite/category-ai-!cn.mrs", "path": "./ruleset/category-ai-!cn.mrs", "interval": 86400 };
+  if (ruleOptions.youtube)   providers["youtube"]          = { "type": "http", "format": "mrs", "behavior": "domain", "url": proxyUrlPrefix + "/geosite/youtube.mrs",           "path": "./ruleset/youtube.mrs",           "interval": 86400 };
+  if (ruleOptions.google)    providers["google"]           = { "type": "http", "format": "mrs", "behavior": "domain", "url": proxyUrlPrefix + "/geosite/google.mrs",            "path": "./ruleset/google.mrs",            "interval": 86400 };
+  if (ruleOptions.github)    providers["github"]           = { "type": "http", "format": "mrs", "behavior": "domain", "url": proxyUrlPrefix + "/geosite/github.mrs",            "path": "./ruleset/github.mrs",            "interval": 86400 };
+  if (ruleOptions.microsoft) providers["microsoft"]        = { "type": "http", "format": "mrs", "behavior": "domain", "url": proxyUrlPrefix + "/geosite/microsoft.mrs",         "path": "./ruleset/microsoft.mrs",         "interval": 86400 };
+  if (ruleOptions.apple)     providers["apple"]            = { "type": "http", "format": "mrs", "behavior": "domain", "url": proxyUrlPrefix + "/geosite/apple.mrs",             "path": "./ruleset/apple.mrs",             "interval": 86400 };
+  if (ruleOptions.twitter)   providers["twitter"]          = { "type": "http", "format": "mrs", "behavior": "domain", "url": proxyUrlPrefix + "/geosite/twitter.mrs",           "path": "./ruleset/twitter.mrs",           "interval": 86400 };
+  if (ruleOptions.netflix)   providers["netflix"]          = { "type": "http", "format": "mrs", "behavior": "domain", "url": proxyUrlPrefix + "/geosite/netflix.mrs",           "path": "./ruleset/netflix.mrs",           "interval": 86400 };
+  if (ruleOptions.telegram)  providers["telegram-ip"]      = { "type": "http", "format": "mrs", "behavior": "ipcidr", "url": proxyUrlPrefix + "/geoip/telegram.mrs",            "path": "./ruleset/telegram-ip.mrs",       "interval": 86400 };
   if (ruleOptions.crypto) {
-    providers["okx"] = { "type": "http", "format": "mrs", "behavior": "domain", "url": proxyUrlPrefix + "/geosite/okx.mrs", "path": "./ruleset/okx.mrs", "interval": 86400 };
+    providers["okx"]     = { "type": "http", "format": "mrs", "behavior": "domain", "url": proxyUrlPrefix + "/geosite/okx.mrs",     "path": "./ruleset/okx.mrs",     "interval": 86400 };
     providers["binance"] = { "type": "http", "format": "mrs", "behavior": "domain", "url": proxyUrlPrefix + "/geosite/binance.mrs", "path": "./ruleset/binance.mrs", "interval": 86400 };
-    providers["kraken"] = { "type": "http", "format": "mrs", "behavior": "domain", "url": proxyUrlPrefix + "/geosite/kraken.mrs", "path": "./ruleset/kraken.mrs", "interval": 86400 };
+    providers["kraken"]  = { "type": "http", "format": "mrs", "behavior": "domain", "url": proxyUrlPrefix + "/geosite/kraken.mrs",  "path": "./ruleset/kraken.mrs",  "interval": 86400 };
   }
   config["rule-providers"] = providers;
 
@@ -338,7 +332,7 @@ function main(config) {
     withIcon({
       "name": "⚡ 自动选择",
       "type": "select",
-      "proxies": regionNames.concat(["DIRECT"]),
+      "proxies": regionNames.concat(["DIRECT"])
     }),
 
     withIcon({
@@ -346,7 +340,7 @@ function main(config) {
       "type": "load-balance",
       "include-all-proxies": true,
       "strategy": "consistent-hashing",
-      "url": "https://www.gstatic.com/generate_204",
+      "url": HEALTH_CHECK_URL,
       "interval": 300,
       "timeout": 3000,
       "lazy": true
@@ -356,11 +350,12 @@ function main(config) {
       "name": "🔯 故障转移",
       "type": "fallback",
       "include-all-proxies": true,
-      "url": "https://www.gstatic.com/generate_204",
-      "interval": 180,
+      "url": HEALTH_CHECK_URL,
+      // [v11.1-2] 从180改为300，减少检测频率，避免日志刷屏
+      "interval": 300,
       "timeout": 3000,
       "lazy": true,
-      "max-failed-times": 2 // [v9-3] 失败 2 次就判定死亡
+      "max-failed-times": 3
     }),
 
     withIcon({
@@ -384,11 +379,11 @@ function main(config) {
       "include-all": true,
       "filter": region.filterRegex,
       "exclude-type": "direct|reject",
-      "url": "https://www.gstatic.com/generate_204",
+      "url": HEALTH_CHECK_URL,
       "interval": 300,
       "timeout": 3000,
       "lazy": true,
-      "max-failed-times": 2,
+      "max-failed-times": 3,
       "expected-status": 204,
       "tolerance": 50
     }));
@@ -399,28 +394,28 @@ function main(config) {
       "name": "🌍 其他节点",
       "type": "url-test",
       "proxies": unMatchedProxies,
-      "url": "https://www.gstatic.com/generate_204",
+      "url": HEALTH_CHECK_URL,
       "interval": 300,
       "timeout": 3000,
       "lazy": true,
-      "max-failed-times": 2,
+      "max-failed-times": 3,
       "expected-status": 204,
       "tolerance": 50
     }));
   }
 
   var activeBusinessGroups = [];
-  if (ruleOptions.ai) activeBusinessGroups.push("💬 AI 服务");
-  if (ruleOptions.youtube) activeBusinessGroups.push("📹 油管视频");
-  if (ruleOptions.google) activeBusinessGroups.push("🔍 谷歌服务");
-  if (ruleOptions.telegram) activeBusinessGroups.push("📲 电报消息");
-  if (ruleOptions.github) activeBusinessGroups.push("🐱 Github");
+  if (ruleOptions.ai)        activeBusinessGroups.push("💬 AI 服务");
+  if (ruleOptions.youtube)   activeBusinessGroups.push("📹 油管视频");
+  if (ruleOptions.google)    activeBusinessGroups.push("🔍 谷歌服务");
+  if (ruleOptions.telegram)  activeBusinessGroups.push("📲 电报消息");
+  if (ruleOptions.github)    activeBusinessGroups.push("🐱 Github");
   if (ruleOptions.microsoft) activeBusinessGroups.push("Ⓜ️ 微软服务");
-  if (ruleOptions.apple) activeBusinessGroups.push("🍏 苹果服务");
-  if (ruleOptions.twitter) activeBusinessGroups.push("🌐 社交媒体");
-  if (ruleOptions.netflix) activeBusinessGroups.push("🎬 流媒体");
-  if (ruleOptions.crypto) activeBusinessGroups.push("🤝 交易所");
-  if (ruleOptions.finance) activeBusinessGroups.push("💰 金融服务");
+  if (ruleOptions.apple)     activeBusinessGroups.push("🍏 苹果服务");
+  if (ruleOptions.twitter)   activeBusinessGroups.push("🌐 社交媒体");
+  if (ruleOptions.netflix)   activeBusinessGroups.push("🎬 流媒体");
+  if (ruleOptions.crypto)    activeBusinessGroups.push("🤝 交易所");
+  if (ruleOptions.finance)   activeBusinessGroups.push("💰 金融服务");
   activeBusinessGroups.push("🐟 漏网之鱼");
 
   for (var b = 0; b < activeBusinessGroups.length; b++) {
@@ -440,7 +435,6 @@ function main(config) {
   // 8. 路由分流规则
   // =====================================================================
   var rules = [
-    // [v9-1] 🔴 彻底剿灭 Apple Private Relay 导致的 DNS 死锁！
     "DOMAIN,mask.icloud.com,REJECT",
     "DOMAIN,mask-h2.icloud.com,REJECT",
     "DOMAIN,mask-api.icloud.com,REJECT",
@@ -462,17 +456,19 @@ function main(config) {
     "DOMAIN,stun.m2m.orange.com,REJECT",
     "DOMAIN,global.stun.twilio.com,REJECT",
     "DOMAIN,global.turn.twilio.com,REJECT",
+    "DOMAIN,stun.twilio.com,REJECT",
+    "DOMAIN,turn.twilio.com,REJECT",
     "DOMAIN-SUFFIX,twilio.com,🚀 节点选择",
     "DOMAIN-SUFFIX,coturn.net,REJECT",
     "DOMAIN-SUFFIX,metered.ca,REJECT",
     "DOMAIN,turn.anyfirewall.com,REJECT",
 
-    "AND,(NETWORK,UDP),(DST-PORT,3478),REJECT",
-    "AND,(NETWORK,TCP),(DST-PORT,3478),REJECT",
-    "AND,(NETWORK,UDP),(DST-PORT,19302),REJECT",
-    "AND,(NETWORK,TCP),(DST-PORT,19302),REJECT",
-    "AND,(NETWORK,UDP),(DST-PORT,5349),REJECT",
-    "AND,(NETWORK,TCP),(DST-PORT,5349),REJECT",
+    "AND,((NETWORK,UDP),(DST-PORT,3478)),REJECT",
+    "AND,((NETWORK,TCP),(DST-PORT,3478)),REJECT",
+    "AND,((NETWORK,UDP),(DST-PORT,19302)),REJECT",
+    "AND,((NETWORK,TCP),(DST-PORT,19302)),REJECT",
+    "AND,((NETWORK,UDP),(DST-PORT,5349)),REJECT",
+    "AND,((NETWORK,TCP),(DST-PORT,5349)),REJECT",
 
     "DOMAIN-SUFFIX,weixin.com,DIRECT",
     "DOMAIN-SUFFIX,wx.qq.com,DIRECT",
@@ -519,7 +515,6 @@ function main(config) {
       "DOMAIN-SUFFIX,nftstatic.com,🤝 交易所",
       "DOMAIN-SUFFIX,binance.me,🤝 交易所",
       "DOMAIN-SUFFIX,kraken.com,🤝 交易所",
-      "DOMAIN-SUFFIX,futures.kraken.com,🤝 交易所",
       "RULE-SET,okx,🤝 交易所",
       "RULE-SET,binance,🤝 交易所",
       "RULE-SET,kraken,🤝 交易所"
@@ -539,14 +534,14 @@ function main(config) {
     ]);
   }
 
-  if (ruleOptions.youtube) rules.push("RULE-SET,youtube,📹 油管视频");
-  if (ruleOptions.google) rules.push("RULE-SET,google,🔍 谷歌服务");
-  if (ruleOptions.github) rules.push("RULE-SET,github,🐱 Github");
+  if (ruleOptions.youtube)   rules.push("RULE-SET,youtube,📹 油管视频");
+  if (ruleOptions.google)    rules.push("RULE-SET,google,🔍 谷歌服务");
+  if (ruleOptions.github)    rules.push("RULE-SET,github,🐱 Github");
   if (ruleOptions.microsoft) rules.push("RULE-SET,microsoft,Ⓜ️ 微软服务");
-  if (ruleOptions.apple) rules.push("RULE-SET,apple,🍏 苹果服务");
-  if (ruleOptions.twitter) rules.push("RULE-SET,twitter,🌐 社交媒体");
-  if (ruleOptions.netflix) rules.push("RULE-SET,netflix,🎬 流媒体");
-  if (ruleOptions.telegram) rules.push("RULE-SET,telegram-ip,📲 电报消息,no-resolve");
+  if (ruleOptions.apple)     rules.push("RULE-SET,apple,🍏 苹果服务");
+  if (ruleOptions.twitter)   rules.push("RULE-SET,twitter,🌐 社交媒体");
+  if (ruleOptions.netflix)   rules.push("RULE-SET,netflix,🎬 流媒体");
+  if (ruleOptions.telegram)  rules.push("RULE-SET,telegram-ip,📲 电报消息,no-resolve");
 
   rules.push("DOMAIN-SUFFIX,nextcloud.com,🚀 节点选择");
 
