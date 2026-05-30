@@ -3,9 +3,10 @@
 // 版本: 终极融合版 v11.3 (修正版)
 // 修复清单:
 // 1. 严格遵守 Boa JS 引擎标准，移除不受支持的属性
-// 2. 修正逻辑规则 (AND) 语法，去除冗余括号
+// 2. 修正逻辑规则 (AND) 语法，Mihomo 官方要求必须使用嵌套括号
 // 3. 强制对称 NAT (endpoint-independent-nat: false)，彻底阻断 WebRTC 泄露
 // 4. 完美实现 Fake-IP + no-resolve 无缝衔接，杜绝 DNS 泄露
+// 5. 优化负载均衡与故障转移组，显式排除 direct/reject 避免测速异常
 // =========================================================================
 
 var ruleOptions = {
@@ -331,6 +332,7 @@ function main(config) {
       "name": "⚖️ 负载均衡",
       "type": "load-balance",
       "include-all-proxies": true,
+      "exclude-type": "direct|reject", // 修复：排除直连和拒绝，防止测速异常
       "strategy": "consistent-hashing",
       "url": HEALTH_CHECK_URL,
       "interval": 300,
@@ -341,6 +343,7 @@ function main(config) {
       "name": "🔯 故障转移",
       "type": "fallback",
       "include-all-proxies": true,
+      "exclude-type": "direct|reject", // 修复：排除直连和拒绝，防止测速异常
       "url": HEALTH_CHECK_URL,
       "interval": 300,
       "timeout": 3000,
@@ -457,13 +460,13 @@ function main(config) {
     "DOMAIN-SUFFIX,metered.ca,REJECT",
     "DOMAIN,turn.anyfirewall.com,REJECT",
 
-    // ── [4] 端口级 STUN/TURN 拦截 (语法修正：去除嵌套括号) ──
-    "AND,(NETWORK,UDP),(DST-PORT,3478),REJECT",
-    "AND,(NETWORK,TCP),(DST-PORT,3478),REJECT",
-    "AND,(NETWORK,UDP),(DST-PORT,19302),REJECT",
-    "AND,(NETWORK,TCP),(DST-PORT,19302),REJECT",
-    "AND,(NETWORK,UDP),(DST-PORT,5349),REJECT",
-    "AND,(NETWORK,TCP),(DST-PORT,5349),REJECT",
+    // ── [4] 端口级 STUN/TURN 拦截 (语法修正：Mihomo 官方要求嵌套括号) ──
+    "AND,((NETWORK,UDP),(DST-PORT,3478)),REJECT",
+    "AND,((NETWORK,TCP),(DST-PORT,3478)),REJECT",
+    "AND,((NETWORK,UDP),(DST-PORT,19302)),REJECT",
+    "AND,((NETWORK,TCP),(DST-PORT,19302)),REJECT",
+    "AND,((NETWORK,UDP),(DST-PORT,5349)),REJECT",
+    "AND,((NETWORK,TCP),(DST-PORT,5349)),REJECT",
 
     // ── [5] 国内支付 / 社交直连 ──
     "DOMAIN-SUFFIX,weixin.com,DIRECT",
