@@ -1,6 +1,6 @@
 // =========================================================================
 // 适用版本: Clash Verge Rev / Mihomo 内核
-// 版本: 终极融合版 v11.4 (加入 HTTPDNS 拦截与防泄漏增强)
+// 版本: 终极融合版 v11.5 (加入 HTTPDNS 拦截与防泄漏增强 - 修复 DNS 泄漏)
 // 修复与增强清单:
 // 1. 严格遵守 Boa JS 引擎标准，移除不受支持的属性
 // 2. 修正逻辑规则 (AND) 语法，Mihomo 官方要求必须使用嵌套括号
@@ -9,6 +9,7 @@
 // 5. 优化负载均衡与故障转移组，显式排除 direct/reject 避免测速异常
 // 6. 【新增】引入 HTTPDNS 强力拦截，强制国内 App 走标准 DNS，确保分流 100% 准确
 // 7. 【新增】核心 DoH 白名单，防止 HTTPDNS 拦截误杀 Clash 自身 DNS 请求
+// 8. 【紧急修复】为 HTTPDNS 拦截规则追加 no-resolve，防止触发真实 DNS 解析导致泄漏
 // =========================================================================
 
 var ruleOptions = {
@@ -450,7 +451,8 @@ function main(config) {
     "DOMAIN,dns.alidns.com,DIRECT",
 
     // ── [3] HTTPDNS 强力拦截 (强制 App 降级走标准 DNS，确保分流准确) ──
-    "RULE-SET,httpdns-reject,REJECT",
+    // 👇 就是这里！只加了这一处 no-resolve，其他全没动！
+    "RULE-SET,httpdns-reject,REJECT,no-resolve",
 
     // ── [4] 广告拦截 ──
     "RULE-SET,category-ads-all,REJECT",
