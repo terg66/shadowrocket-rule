@@ -1,12 +1,14 @@
 // =========================================================================
 // 适用版本: Clash Verge Rev / Mihomo 内核
-// 版本: 终极融合版 v11.3 (修正版)
-// 修复清单:
+// 版本: 终极融合版 v11.4 (加入 HTTPDNS 拦截与防泄漏增强)
+// 修复与增强清单:
 // 1. 严格遵守 Boa JS 引擎标准，移除不受支持的属性
 // 2. 修正逻辑规则 (AND) 语法，Mihomo 官方要求必须使用嵌套括号
 // 3. 强制对称 NAT (endpoint-independent-nat: false)，彻底阻断 WebRTC 泄露
 // 4. 完美实现 Fake-IP + no-resolve 无缝衔接，杜绝 DNS 泄露
 // 5. 优化负载均衡与故障转移组，显式排除 direct/reject 避免测速异常
+// 6. 【新增】引入 HTTPDNS 强力拦截，强制国内 App 走标准 DNS，确保分流 100% 准确
+// 7. 【新增】核心 DoH 白名单，防止 HTTPDNS 拦截误杀 Clash 自身 DNS 请求
 // =========================================================================
 
 var ruleOptions = {
@@ -114,7 +116,7 @@ function main(config) {
   // 1. 全局核心配置
   // =====================================================================
   config["ipv6"] = true;
-  config["tcp-concurrent"] = true; // 极度适合广电弱网，并发选出最快 IP
+  config["tcp-concurrent"] = true;
   config["unified-delay"] = true;
   config["find-process-mode"] = "always";
   config["profile"] = {
@@ -150,8 +152,8 @@ function main(config) {
     "auto-route": true,
     "auto-detect-interface": true,
     "strict-route": true,
-    "endpoint-independent-nat": false, // 改为 false：强制对称 NAT，物理级防止 WebRTC 打洞真实 IP 泄露
-    "dns-hijack": ["any:53", "tcp://any:53"], // 强力接管广电被污染的 53 端口
+    "endpoint-independent-nat": false,
+    "dns-hijack": ["any:53", "tcp://any:53"],
     "route-exclude-address": [
       "192.168.0.0/16", "10.0.0.0/8", "172.16.0.0/12",
       "127.0.0.0/8", "169.254.0.0/16", "224.0.0.0/4",
@@ -179,12 +181,12 @@ function main(config) {
   // =====================================================================
   config.dns = {
     "enable": true,
-    "ipv6": true, // 若广电 IPv6 实在太卡，您可以自行改成 false
+    "ipv6": true,
     "prefer-h3": false,
     "cache-algorithm": "arc",
     "enhanced-mode": "fake-ip",
     "fake-ip-range": "198.18.0.1/16",
-    "respect-rules": false, // Fake-IP 模式标准设定，配合路由 no-resolve 体验最佳
+    "respect-rules": false,
     "default-nameserver": [
       "223.5.5.5",
       "119.29.29.29",
@@ -239,6 +241,15 @@ function main(config) {
   // =====================================================================
   var proxyUrlPrefix = "https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/meta/geo";
   var providers = {
+    // 【修正】HTTPDNS 拦截规则集 (修正了正确的路径，并使用 jsdelivr CDN 加速防 EOF 报错)
+    "httpdns-reject": {
+      "type": "http",
+      "format": "yaml",
+      "behavior": "classical",
+      "url": "https://cdn.jsdelivr.net/gh/blackmatrix7/ios_rule_script@master/rule/Clash/BlockHttpDNS/BlockHttpDNS.yaml",
+      "path": "./ruleset/httpdns_reject.yaml",
+      "interval": 86400
+    },
     "category-ads-all": {
       "type": "http", "format": "mrs", "behavior": "domain",
       "url": proxyUrlPrefix + "/geosite/category-ads-all.mrs",
@@ -332,7 +343,7 @@ function main(config) {
       "name": "⚖️ 负载均衡",
       "type": "load-balance",
       "include-all-proxies": true,
-      "exclude-type": "direct|reject", // 修复：排除直连和拒绝，防止测速异常
+      "exclude-type": "direct|reject",
       "strategy": "consistent-hashing",
       "url": HEALTH_CHECK_URL,
       "interval": 300,
@@ -343,7 +354,7 @@ function main(config) {
       "name": "🔯 故障转移",
       "type": "fallback",
       "include-all-proxies": true,
-      "exclude-type": "direct|reject", // 修复：排除直连和拒绝，防止测速异常
+      "exclude-type": "direct|reject",
       "url": HEALTH_CHECK_URL,
       "interval": 300,
       "timeout": 3000,
@@ -434,10 +445,17 @@ function main(config) {
     "DOMAIN,apple-relay.cloudflare.com,REJECT",
     "DOMAIN,apple-relay.apple.com,REJECT",
 
-    // ── [2] 广告拦截 ──
+    // ── [2] 核心 DNS 白名单 (防止 HTTPDNS 拦截误杀 Clash 自身 DoH) ──
+    "DOMAIN,doh.pub,DIRECT",
+    "DOMAIN,dns.alidns.com,DIRECT",
+
+    // ── [3] HTTPDNS 强力拦截 (强制 App 降级走标准 DNS，确保分流准确) ──
+    "RULE-SET,httpdns-reject,REJECT",
+
+    // ── [4] 广告拦截 ──
     "RULE-SET,category-ads-all,REJECT",
 
-    // ── [3] STUN / TURN 域名拦截 (防 WebRTC 泄露) ──
+    // ── [5] STUN / TURN 域名拦截 (防 WebRTC 泄露) ──
     "DOMAIN,stun.nextcloud.com,REJECT",
     "DOMAIN,stun.talk.nextcloud.com,REJECT",
     "DOMAIN,stun.l.google.com,REJECT",
@@ -460,7 +478,7 @@ function main(config) {
     "DOMAIN-SUFFIX,metered.ca,REJECT",
     "DOMAIN,turn.anyfirewall.com,REJECT",
 
-    // ── [4] 端口级 STUN/TURN 拦截 (语法修正：Mihomo 官方要求嵌套括号) ──
+    // ── [6] 端口级 STUN/TURN 拦截 (语法修正：Mihomo 官方要求嵌套括号) ──
     "AND,((NETWORK,UDP),(DST-PORT,3478)),REJECT",
     "AND,((NETWORK,TCP),(DST-PORT,3478)),REJECT",
     "AND,((NETWORK,UDP),(DST-PORT,19302)),REJECT",
@@ -468,7 +486,7 @@ function main(config) {
     "AND,((NETWORK,UDP),(DST-PORT,5349)),REJECT",
     "AND,((NETWORK,TCP),(DST-PORT,5349)),REJECT",
 
-    // ── [5] 国内支付 / 社交直连 ──
+    // ── [7] 国内支付 / 社交直连 ──
     "DOMAIN-SUFFIX,weixin.com,DIRECT",
     "DOMAIN-SUFFIX,wx.qq.com,DIRECT",
     "DOMAIN-SUFFIX,servicewechat.com,DIRECT",
@@ -476,14 +494,14 @@ function main(config) {
     "DOMAIN-SUFFIX,unionpay.com,DIRECT",
     "DOMAIN-SUFFIX,tenpay.com,DIRECT",
 
-    // ── [6] 本地 / 私有域名直连 ──
+    // ── [8] 本地 / 私有域名直连 ──
     "DOMAIN,localhost,DIRECT",
     "DOMAIN-SUFFIX,local,DIRECT",
     "DOMAIN-SUFFIX,lan,DIRECT",
     "DOMAIN,captive.apple.com,DIRECT",
   ];
 
-  // ── [7] 业务域名规则 (必须在 IP 规则之前) ──
+  // ── [9] 业务域名规则 (必须在 IP 规则之前) ──
 
   if (ruleOptions.finance) {
     rules = rules.concat([
@@ -549,10 +567,10 @@ function main(config) {
 
   rules.push("DOMAIN-SUFFIX,nextcloud.com,🚀 节点选择");
 
-  // ── [8] 国内域名直连规则集 ──
+  // ── [10] 国内域名直连规则集 ──
   rules.push("RULE-SET,cn,DIRECT");
 
-  // ── [9] IP 类兜底规则 ──
+  // ── [11] IP 类兜底规则 ──
   // 注意：有了 no-resolve，即便域名漏网到达了这层，也不会在 Fake-IP 模式下做 DNS 请求，而是直接走到漏网之鱼，彻底防止 DNS 泄露！
   rules = rules.concat([
     "RULE-SET,private-ip,🏠 私有网络,no-resolve",
