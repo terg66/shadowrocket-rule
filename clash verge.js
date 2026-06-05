@@ -235,6 +235,8 @@ function main(config) {
     "route-exclude-address": [
       "192.168.0.0/16", "10.0.0.0/8", "172.16.0.0/12", "127.0.0.0/8",
       "169.254.0.0/16", "224.0.0.0/4", "255.255.255.255/32", "100.64.0.0/10",
+      "239.255.255.250/32", // 增加投屏与设备发现多播排除
+      "fc00::/7",           // 增加 IPv6 局域网排除
       "fe80::/10", "ff00::/8", "::ffff:0:0/96", "::1/128"
     ]
   };
@@ -297,7 +299,7 @@ function main(config) {
       "type": "http",
       "format": "yaml",
       "behavior": "classical",
-      "url": "https://cdn.jsdelivr.net/gh/blackmatrix7/ios_rule_script@master/rule/Clash/BlockHttpDNS/BlockHttpDNS.yaml",
+      "url": "https://raw.githubusercontent.com/blackmatrix7/ios_rule_script/master/rule/Clash/BlockHttpDNS/BlockHttpDNS.yaml",
       "path": "./ruleset/httpdns_reject.yaml",
       "interval": 86400
     },
@@ -644,6 +646,9 @@ function main(config) {
     "AND,((NETWORK,UDP),(DST-PORT,5349)),REJECT",
     "AND,((NETWORK,TCP),(DST-PORT,5349)),REJECT",
 
+    // ── [8.5] 私有网络优先放行 ──
+    "RULE-SET,private-ip,🏠 私有网络,no-resolve",
+
     // ── [9] 放行正常业务 (必须放在 REJECT 之后) ──
     "DOMAIN-SUFFIX,twilio.com,🚀 节点选择",
 
@@ -666,35 +671,30 @@ function main(config) {
   if (ruleOptions.finance) {
     rules = rules.concat([
       "DOMAIN-SUFFIX,wise.com,💰 金融服务",
-      "DOMAIN-SUFFIX,wise.help,💰 金融服务",
-      "DOMAIN-SUFFIX,wiseassets.com,💰 金融服务",
       "DOMAIN-SUFFIX,transferwise.com,💰 金融服务",
-      "DOMAIN-SUFFIX,stripe.com,💰 金融服务",
-      "DOMAIN-SUFFIX,stripe.network,💰 金融服务",
+      "DOMAIN-KEYWORD,stripe,💰 金融服务",
+      "DOMAIN-KEYWORD,paypal,💰 金融服务",
       "DOMAIN-SUFFIX,hcaptcha.com,💰 金融服务",
       "DOMAIN-SUFFIX,sprig.com,💰 金融服务",
       "DOMAIN-SUFFIX,dukascopy.com,💰 金融服务",
       "DOMAIN-SUFFIX,dukas.io,💰 金融服务",
       "DOMAIN-SUFFIX,jforex.net,💰 金融服务",
-      "DOMAIN-SUFFIX,trading-platform.info,💰 金融服务",
-      "DOMAIN-SUFFIX,paypal.com,💰 金融服务",
-      "DOMAIN-SUFFIX,paypalobjects.com,💰 金融服务"
+      "DOMAIN-SUFFIX,trading-platform.info,💰 金融服务"
     ]);
   }
 
   if (ruleOptions.crypto) {
     rules = rules.concat([
-      "DOMAIN-SUFFIX,okx.com,🤝 交易所",
-      "DOMAIN-SUFFIX,oklink.com,🤝 交易所",
-      "DOMAIN-SUFFIX,okx.io,🤝 交易所",
       "DOMAIN-KEYWORD,binance,🤝 交易所",
       "DOMAIN-SUFFIX,bnbstatic.com,🤝 交易所",
       "DOMAIN-SUFFIX,bntrace.com,🤝 交易所",
       "DOMAIN-SUFFIX,bsappapi.com,🤝 交易所",
       "DOMAIN-SUFFIX,nftstatic.com,🤝 交易所",
       "DOMAIN-SUFFIX,binance.me,🤝 交易所",
+      "DOMAIN-SUFFIX,okx.com,🤝 交易所",
+      "DOMAIN-SUFFIX,oklink.com,🤝 交易所",
+      "DOMAIN-SUFFIX,okx.io,🤝 交易所",
       "DOMAIN-SUFFIX,kraken.com,🤝 交易所",
-      "DOMAIN-SUFFIX,krakenfiles.com,🤝 交易所",
       "RULE-SET,okx,🤝 交易所",
       "RULE-SET,binance,🤝 交易所",
       "RULE-SET,kraken,🤝 交易所"
@@ -733,7 +733,6 @@ function main(config) {
   // ── [14] IP 类兜底规则 ── 
   // 注意：有了 no-resolve，即便域名漏网到达了这层，也不会在 Fake-IP 模式下做 DNS 请求，而是直接走到漏网之鱼，彻底防止 DNS 泄露！ 
   rules = rules.concat([
-    "RULE-SET,private-ip,🏠 私有网络,no-resolve",
     "RULE-SET,cn-ip,DIRECT,no-resolve",
     "MATCH,🐟 漏网之鱼"
   ]);
