@@ -185,7 +185,7 @@ function main(config) {
   config["unified-delay"] = true;
   config["find-process-mode"] = "always";
   config["profile"] = {
-    "store-selected": true,
+    "store-selected": false,
     "store-fake-ip": true
   };
 
@@ -503,7 +503,7 @@ function main(config) {
     })
   ];
 
-  // 核心修复：生成地区分组，强制注入 REJECT 兜底，彻底解决空分组导致内核崩溃的问题
+  // 核心修复：生成地区分组，强制注入 REJECT 兜底
   for (var rIndex = 0; rIndex < regionFilters.length; rIndex++) {
     var region = regionFilters[rIndex];
     config["proxy-groups"].push(withIcon({
@@ -512,7 +512,7 @@ function main(config) {
       "include-all": true,
       "filter": region.filterRegex,
       "proxies": ["REJECT"], // 兜底节点，保证分组永远不为空
-      "exclude-type": "direct", // 移除 reject 排除，允许 REJECT 存在
+      "exclude-type": "direct|reject", // 👈 加上 |reject，防止内核去测速 REJECT 导致 UI 卡顿
       "url": HEALTH_CHECK_URL,
       "interval": 300,
       "timeout": 3000,
