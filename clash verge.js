@@ -1,5 +1,5 @@
 // 适用版本: Clash Verge Rev / ClashMi / Mihomo 内核
-// 版本: 终极融合版 v13.0 (完美兼容本地导入 + 注入 REJECT 兜底彻底防止测速崩溃)
+// 版本: 终极融合版 v13.1 (修复空分组崩溃漏洞，优化正则引擎性能)
 
 var ruleOptions = {
   finance: true,
@@ -72,107 +72,107 @@ function withIcon(groupObj) {
   return groupObj;
 }
 
-// 恢复原版 filterRegex 逻辑，修复了原版正则中 |) 可能导致的 Go 引擎错误，并强制允许 REJECT 节点通过筛选
+// 修复：统一使用非捕获组 (?:...)，并移除冗余且无效的 |REJECT 匹配项
 var regionFilters = [
   {
     name: "🇺🇸 美国节点",
     regex: "美|\\bus\\b|united.?states|america",
-    filterRegex: "(?i)(?:美国|united.?states|america|(?:^|[^a-zA-Z])us(?:[^a-zA-Z]|$)|REJECT)"
+    filterRegex: "(?i)(?:美国|united.?states|america|(?:^|[^a-zA-Z])us(?:[^a-zA-Z]|$))"
   },
   {
     name: "🇨🇭 瑞士节点",
     regex: "瑞士|\\bch\\b|\\brs\\b|switzerland",
-    filterRegex: "(?i)(?:瑞士|switzerland|(?:^|[^a-zA-Z])ch(?:[^a-zA-Z]|$)|(?:^|[^a-zA-Z])rs(?:[^a-zA-Z]|$)|REJECT)"
+    filterRegex: "(?i)(?:瑞士|switzerland|(?:^|[^a-zA-Z])ch(?:[^a-zA-Z]|$)|(?:^|[^a-zA-Z])rs(?:[^a-zA-Z]|$))"
   },
   {
     name: "🇭🇰 香港节点",
     regex: "港|\\bhk\\b|hongkong|hong.?kong",
-    filterRegex: "(?i)(?:港|hongkong|hong.?kong|(?:^|[^a-zA-Z])hk(?:[^a-zA-Z]|$)|REJECT)"
+    filterRegex: "(?i)(?:港|hongkong|hong.?kong|(?:^|[^a-zA-Z])hk(?:[^a-zA-Z]|$))"
   },
   {
     name: "🇯🇵 日本节点",
     regex: "日|\\bjp\\b|japan",
-    filterRegex: "(?i)(?:日本|japan|(?:^|[^a-zA-Z])jp(?:[^a-zA-Z]|$)|REJECT)"
+    filterRegex: "(?i)(?:日本|japan|(?:^|[^a-zA-Z])jp(?:[^a-zA-Z]|$))"
   },
   {
     name: "🇹🇼 台湾节点",
     regex: "台|\\btw\\b|taiwan",
-    filterRegex: "(?i)(?:台湾|taiwan|(?:^|[^a-zA-Z])tw(?:[^a-zA-Z]|$)|REJECT)"
+    filterRegex: "(?i)(?:台湾|taiwan|(?:^|[^a-zA-Z])tw(?:[^a-zA-Z]|$))"
   },
   {
     name: "🇸🇬 新加坡节点",
     regex: "新|\\bsg\\b|singapore",
-    filterRegex: "(?i)(?:新加坡|singapore|(?:^|[^a-zA-Z])sg(?:[^a-zA-Z]|$)|REJECT)"
+    filterRegex: "(?i)(?:新加坡|singapore|(?:^|[^a-zA-Z])sg(?:[^a-zA-Z]|$))"
   },
   {
     name: "🇰🇷 韩国节点",
     regex: "韩|\\bkr\\b|korea",
-    filterRegex: "(?i)(?:韩国|korea|(?:^|[^a-zA-Z])kr(?:[^a-zA-Z]|$)|REJECT)"
+    filterRegex: "(?i)(?:韩国|korea|(?:^|[^a-zA-Z])kr(?:[^a-zA-Z]|$))"
   },
   {
     name: "🇬🇧 英国节点",
     regex: "英|\\buk\\b|\\bgb\\b|united.?kingdom|britain",
-    filterRegex: "(?i)(?:英国|united.?kingdom|britain|(?:^|[^a-zA-Z])uk(?:[^a-zA-Z]|$)|(?:^|[^a-zA-Z])gb(?:[^a-zA-Z]|$)|REJECT)"
+    filterRegex: "(?i)(?:英国|united.?kingdom|britain|(?:^|[^a-zA-Z])uk(?:[^a-zA-Z]|$)|(?:^|[^a-zA-Z])gb(?:[^a-zA-Z]|$))"
   },
   {
     name: "🇩🇪 德国节点",
     regex: "德|\\bde\\b|germany",
-    filterRegex: "(?i)(?:德国|germany|(?:^|[^a-zA-Z])de(?:[^a-zA-Z]|$)|REJECT)"
+    filterRegex: "(?i)(?:德国|germany|(?:^|[^a-zA-Z])de(?:[^a-zA-Z]|$))"
   },
   {
     name: "🇫🇷 法国节点",
     regex: "法|\\bfr\\b|france",
-    filterRegex: "(?i)(?:法国|france|(?:^|[^a-zA-Z])fr(?:[^a-zA-Z]|$)|REJECT)"
+    filterRegex: "(?i)(?:法国|france|(?:^|[^a-zA-Z])fr(?:[^a-zA-Z]|$))"
   },
   {
     name: "🇲🇾 马来节点",
     regex: "马来|\\bmy\\b|malaysia",
-    filterRegex: "(?i)(马来|malaysia|(?:^|[^a-zA-Z])my(?:[^a-zA-Z]|$)|REJECT)"
+    filterRegex: "(?i)(?:马来|malaysia|(?:^|[^a-zA-Z])my(?:[^a-zA-Z]|$))"
   },
   {
     name: "🇹🇷 土耳其节点",
     regex: "土耳其|\\btr\\b|turkey|turkiye",
-    filterRegex: "(?i)(?:土耳其|turkey|turkiye|(?:^|[^a-zA-Z])tr(?:[^a-zA-Z]|$)|REJECT)"
+    filterRegex: "(?i)(?:土耳其|turkey|turkiye|(?:^|[^a-zA-Z])tr(?:[^a-zA-Z]|$))"
   },
   {
     name: "🇨🇦 加拿大节点",
     regex: "加拿大|canada|\\bca[-]|[-]ca\\b",
-    filterRegex: "(?i)(?:加拿大|canada|(?:^|[^a-zA-Z])ca[-]|[-]ca(?:[^a-zA-Z]|$)|REJECT)"
+    filterRegex: "(?i)(?:加拿大|canada|(?:^|[^a-zA-Z])ca[-]|[-]ca(?:[^a-zA-Z]|$))"
   },
   {
     name: "🇦🇺 澳洲节点",
     regex: "澳|\\bau\\b|australia",
-    filterRegex: "(?i)(?:澳大利亚|australia|(?:^|[^a-zA-Z])au(?:[^a-zA-Z]|$)|REJECT)"
+    filterRegex: "(?i)(?:澳大利亚|australia|(?:^|[^a-zA-Z])au(?:[^a-zA-Z]|$))"
   },
   {
     name: "🇳🇱 荷兰节点",
     regex: "荷兰|\\bnl\\b|netherlands",
-    filterRegex: "(?i)(?:荷兰|netherlands|(?:^|[^a-zA-Z])nl(?:[^a-zA-Z]|$)|REJECT)"
+    filterRegex: "(?i)(?:荷兰|netherlands|(?:^|[^a-zA-Z])nl(?:[^a-zA-Z]|$))"
   },
   {
     name: "🇮🇳 印度节点",
     regex: "印度|india|\\bindian\\b",
-    filterRegex: "(?i)(?:印度|india|indian|REJECT)"
+    filterRegex: "(?i)(?:印度|india|indian)"
   },
   {
     name: "🇷🇺 俄罗斯节点",
     regex: "俄|\\bru\\b|russia",
-    filterRegex: "(?i)(?:俄罗斯|russia|(?:^|[^a-zA-Z])ru(?:[^a-zA-Z]|$)|REJECT)"
+    filterRegex: "(?i)(?:俄罗斯|russia|(?:^|[^a-zA-Z])ru(?:[^a-zA-Z]|$))"
   },
   {
     name: "🇦🇷 阿根廷节点",
     regex: "阿根廷|\\bar\\b|argentina",
-    filterRegex: "(?i)(?:阿根廷|argentina|(?:^|[^a-zA-Z])ar(?:[^a-zA-Z]|$)|REJECT)"
+    filterRegex: "(?i)(?:阿根廷|argentina|(?:^|[^a-zA-Z])ar(?:[^a-zA-Z]|$))"
   },
   {
     name: "🇵🇱 波兰节点",
     regex: "波兰|\\bpl\\b|poland",
-    filterRegex: "(?i)(?:波兰|poland|(?:^|[^a-zA-Z])pl(?:[^a-zA-Z]|$)|REJECT)"
+    filterRegex: "(?i)(?:波兰|poland|(?:^|[^a-zA-Z])pl(?:[^a-zA-Z]|$))"
   },
   {
     name: "🇮🇹 意大利节点",
     regex: "意大利|\\bit\\b|italy",
-    filterRegex: "(?i)(?:意大利|italy|(?:^|[^a-zA-Z])it(?:[^a-zA-Z]|$)|REJECT)"
+    filterRegex: "(?i)(?:意大利|italy|(?:^|[^a-zA-Z])it(?:[^a-zA-Z]|$))"
   }
 ];
 
@@ -185,7 +185,7 @@ function main(config) {
   config["unified-delay"] = true;
   config["find-process-mode"] = "always";
   config["profile"] = {
-    "store-selected": false,
+    "store-selected": true,
     "store-fake-ip": true
   };
 
@@ -503,7 +503,7 @@ function main(config) {
     })
   ];
 
-  // 核心修复：生成地区分组，强制注入 REJECT 兜底
+  // 核心修复：移除了危险的 exclude-type，确保 REJECT 兜底节点不会被内核剔除，彻底杜绝空分组崩溃
   for (var rIndex = 0; rIndex < regionFilters.length; rIndex++) {
     var region = regionFilters[rIndex];
     config["proxy-groups"].push(withIcon({
@@ -512,7 +512,6 @@ function main(config) {
       "include-all": true,
       "filter": region.filterRegex,
       "proxies": ["REJECT"], // 兜底节点，保证分组永远不为空
-      "exclude-type": "direct|reject", // 👈 加上 |reject，防止内核去测速 REJECT 导致 UI 卡顿
       "url": HEALTH_CHECK_URL,
       "interval": 300,
       "timeout": 3000,
