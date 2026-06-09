@@ -1,5 +1,5 @@
 // 适用版本: Clash Verge Rev / ClashMi / Mihomo 内核
-// 版本: 终极融合版 v13.1 (修复空分组崩溃漏洞，优化正则引擎性能)
+// 版本: 终极融合版 v13.3 (修复本地节点丢失问题，引入人性化兜底节点防崩溃)
 
 var ruleOptions = {
   finance: true,
@@ -72,7 +72,6 @@ function withIcon(groupObj) {
   return groupObj;
 }
 
-// 修复：统一使用非捕获组 (?:...)，并移除冗余且无效的 |REJECT 匹配项
 var regionFilters = [
   {
     name: "🇺🇸 美国节点",
@@ -451,6 +450,17 @@ function main(config) {
   config["rule-providers"] = providers;
 
   // 7. 代理分组
+  // 核心修复 1：注入一个指向本地死端口的自定义兜底节点
+  // 作用：替代生硬的 REJECT。当该地区没有节点或全部超时时，选中此节点会明确提示用户，且不会引发内核测速误判。
+  config.proxies = config.proxies || [];
+  config.proxies.push({
+    "name": "⛔ 节点全离线或为空",
+    "type": "socks5",
+    "server": "127.0.0.1",
+    "port": 65535,
+    "udp": false
+  });
+
   var regionNames = [];
   for (var n = 0; n < regionFilters.length; n++) {
     regionNames.push(regionFilters[n].name);
@@ -474,6 +484,7 @@ function main(config) {
       "type": "load-balance",
       "include-all": true,
       "exclude-type": "direct|reject",
+      "exclude-filter": "⛔ 节点全离线或为空", // 防止兜底节点污染负载均衡
       "strategy": "consistent-hashing",
       "url": HEALTH_CHECK_URL,
       "interval": 300,
@@ -485,6 +496,7 @@ function main(config) {
       "type": "fallback",
       "include-all": true,
       "exclude-type": "direct|reject",
+      "exclude-filter": "⛔ 节点全离线或为空", // 防止兜底节点污染故障转移
       "url": HEALTH_CHECK_URL,
       "interval": 300,
       "timeout": 3000,
@@ -503,7 +515,7 @@ function main(config) {
     })
   ];
 
-  // 核心修复：移除了危险的 exclude-type，确保 REJECT 兜底节点不会被内核剔除，彻底杜绝空分组崩溃
+  // 核心修复 2：恢复 include-all 动态筛选，完美兼容本地节点合并
   for (var rIndex = 0; rIndex < regionFilters.length; rIndex++) {
     var region = regionFilters[rIndex];
     config["proxy-groups"].push(withIcon({
@@ -511,7 +523,7 @@ function main(config) {
       "type": "url-test",
       "include-all": true,
       "filter": region.filterRegex,
-      "proxies": ["REJECT"], // 兜底节点，保证分组永远不为空
+      "proxies": ["⛔ 节点全离线或为空"], // 物理级防崩溃兜底，彻底告别 REJECT
       "url": HEALTH_CHECK_URL,
       "interval": 300,
       "timeout": 3000,
@@ -565,7 +577,7 @@ function main(config) {
     // ── [3] HTTPDNS 强力拦截 (强制 App 降级走标准 DNS，确保分流准确) ──
     "RULE-SET,httpdns-reject,REJECT,no-resolve",
 
-    // ── [4] QUIC 全局屏蔽 (广电网络提速核心 / 强制降级 TCP) ──
+    // ── [4] QUIC 全局屏蔽 (广电网络提速核心 / 强制降级 TCP) ── 
     "AND,((NETWORK,UDP),(DST-PORT,443)),REJECT",
 
     // ── [5] 广告拦截 ──
