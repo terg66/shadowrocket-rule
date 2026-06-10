@@ -1,5 +1,5 @@
 // 适用版本: Clash Verge Rev / ClashMi / Mihomo 内核
-// 版本: 终极融合版 v13.3 (修复本地节点丢失问题，引入人性化兜底节点防崩溃)
+// 版本: 终极融合版 v13.4 (修复本地节点丢失问题，引入人性化兜底节点防崩溃，精细化分流校准)
 
 var ruleOptions = {
   finance: true,
@@ -268,7 +268,8 @@ function main(config) {
     },
     "fake-ip-filter": [
       "+.weixin.com", "+.wx.qq.com", "+.servicewechat.com", "+.alipay.com",
-      "+.unionpay.com", "+.tenpay.com", "localhost", "+.local", "+.lan",
+      "+.alipayobjects.com", "+.unionpay.com", "+.tenpay.com", "+.wechatpay.com",
+      "+.qlogo.cn", "+.qpic.cn", "localhost", "+.local", "+.lan",
       "*.localdomain", "time.apple.com", "time1.apple.com", "time2.apple.com",
       "time3.apple.com", "time4.apple.com", "time5.apple.com", "time6.apple.com",
       "time7.apple.com", "time-ios.apple.com", "time.cloudflare.com",
@@ -603,7 +604,7 @@ function main(config) {
     "AND,((NETWORK,UDP),(PROCESS-NAME,Microsoft Edge)),REJECT",
     "AND,((NETWORK,UDP),(PROCESS-NAME,Firefox)),REJECT",
 
-    // ── [8] 端口级核弹：STUN/TURN 默认端口拦截 (覆盖移动端和非标准浏览器) ──
+    // ── [8] 端口级核弹：STUN/TURN 默认端口拦截 (覆盖移动端 and 非标准浏览器) ──
     "AND,((NETWORK,UDP),(DST-PORT,3478)),REJECT",
     "AND,((NETWORK,TCP),(DST-PORT,3478)),REJECT",
     "AND,((NETWORK,UDP),(DST-PORT,19302)),REJECT",
@@ -622,8 +623,12 @@ function main(config) {
     "DOMAIN-SUFFIX,wx.qq.com,DIRECT",
     "DOMAIN-SUFFIX,servicewechat.com,DIRECT",
     "DOMAIN-SUFFIX,alipay.com,DIRECT",
+    "DOMAIN-SUFFIX,alipayobjects.com,DIRECT",
     "DOMAIN-SUFFIX,unionpay.com,DIRECT",
     "DOMAIN-SUFFIX,tenpay.com,DIRECT",
+    "DOMAIN-SUFFIX,wechatpay.com,DIRECT",
+    "DOMAIN-SUFFIX,qlogo.cn,DIRECT",
+    "DOMAIN-SUFFIX,qpic.cn,DIRECT",
 
     // ── [11] 本地 / 私有域名直连 ──
     "DOMAIN,localhost,DIRECT",
@@ -640,7 +645,6 @@ function main(config) {
       "DOMAIN-KEYWORD,stripe,💰 金融服务",
       "DOMAIN-KEYWORD,paypal,💰 金融服务",
       "DOMAIN-SUFFIX,hcaptcha.com,💰 金融服务",
-      "DOMAIN-SUFFIX,sprig.com,💰 金融服务",
       "DOMAIN-SUFFIX,dukascopy.com,💰 金融服务",
       "DOMAIN-SUFFIX,dukas.io,💰 金融服务",
       "DOMAIN-SUFFIX,jforex.net,💰 金融服务",
@@ -659,6 +663,9 @@ function main(config) {
       "DOMAIN-SUFFIX,okx.com,🤝 交易所",
       "DOMAIN-SUFFIX,oklink.com,🤝 交易所",
       "DOMAIN-SUFFIX,okx.io,🤝 交易所",
+      "DOMAIN-SUFFIX,okx-dns.com,🤝 交易所",
+      "DOMAIN-SUFFIX,okx-dns1.com,🤝 交易所",
+      "DOMAIN-SUFFIX,okx-dns2.com,🤝 交易所",
       "DOMAIN-SUFFIX,kraken.com,🤝 交易所",
       "RULE-SET,okx,🤝 交易所",
       "RULE-SET,binance,🤝 交易所",
@@ -668,6 +675,7 @@ function main(config) {
 
   if (ruleOptions.ai) {
     rules = rules.concat([
+      "DOMAIN-SUFFIX,gemini.google,💬 AI 服务",
       "DOMAIN-SUFFIX,gemini.google.com,💬 AI 服务",
       "DOMAIN-SUFFIX,aistudio.google.com,💬 AI 服务",
       "DOMAIN-SUFFIX,notebooklm.google.com,💬 AI 服务",
