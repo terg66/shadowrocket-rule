@@ -330,8 +330,8 @@ function main(config) {
   }
 
   // 🚦 [8] 终极路由规则 (Routing Rules)
-  // 核心修复: Clash/Mihomo 逻辑规则解析器基于逗号拆分，禁止多余括号嵌套！
-  // 以下已全部优化为扁平化 AND 结构： AND,(条件1),(条件2),策略
+  // 核心修复: 依据 Mihomo 官方最新规范，逻辑规则底层必须使用双括号嵌套！
+  // 以下已全部优化为标准 AND 结构： AND,((条件1),(条件2)),策略
   var rules = [
     // --- 苹果与公共 DNS 劫持防护 ---
     "DOMAIN,mask.icloud.com,REJECT",
@@ -344,7 +344,7 @@ function main(config) {
     "RULE-SET,httpdns-reject,REJECT,no-resolve", // 屏蔽 HttpDNS，防止大厂绕过代理泄漏真 IP
     
     // --- [核心优化] WebRTC 与 QUIC 强力阻断 (防止真实 IP 泄漏) ---
-    "AND,(NETWORK,udp),(DST-PORT,443),REJECT",   // 暴力禁止 UDP 443，强制应用回退至 TCP 代理
+    "AND,((NETWORK,udp),(DST-PORT,443)),REJECT",   // 暴力禁止 UDP 443，强制应用回退至 TCP 代理
     "RULE-SET,category-ads-all,REJECT",
     "DOMAIN-REGEX,^(stun|turn|turns)\\d*\\.,REJECT",
     "DOMAIN-SUFFIX,coturn.net,REJECT",
@@ -352,24 +352,24 @@ function main(config) {
     "DOMAIN-SUFFIX,anyfirewall.com,REJECT",
     
     // --- 进程级 UDP 泄漏封堵 ---
-    "AND,(NETWORK,udp),(PROCESS-NAME,chrome.exe),REJECT",
-    "AND,(NETWORK,udp),(PROCESS-NAME,msedge.exe),REJECT",
-    "AND,(NETWORK,udp),(PROCESS-NAME,firefox.exe),REJECT",
-    "AND,(NETWORK,udp),(PROCESS-NAME,brave.exe),REJECT",
-    "AND,(NETWORK,udp),(PROCESS-NAME,opera.exe),REJECT",
-    "AND,(NETWORK,udp),(PROCESS-NAME,vivaldi.exe),REJECT",
-    "AND,(NETWORK,udp),(PROCESS-NAME,safari),REJECT",
-    "AND,(NETWORK,udp),(PROCESS-NAME,Google Chrome),REJECT",
-    "AND,(NETWORK,udp),(PROCESS-NAME,Microsoft Edge),REJECT",
-    "AND,(NETWORK,udp),(PROCESS-NAME,Firefox),REJECT",
+    "AND,((NETWORK,udp),(PROCESS-NAME,chrome.exe)),REJECT",
+    "AND,((NETWORK,udp),(PROCESS-NAME,msedge.exe)),REJECT",
+    "AND,((NETWORK,udp),(PROCESS-NAME,firefox.exe)),REJECT",
+    "AND,((NETWORK,udp),(PROCESS-NAME,brave.exe)),REJECT",
+    "AND,((NETWORK,udp),(PROCESS-NAME,opera.exe)),REJECT",
+    "AND,((NETWORK,udp),(PROCESS-NAME,vivaldi.exe)),REJECT",
+    "AND,((NETWORK,udp),(PROCESS-NAME,safari)),REJECT",
+    "AND,((NETWORK,udp),(PROCESS-NAME,Google Chrome)),REJECT",
+    "AND,((NETWORK,udp),(PROCESS-NAME,Microsoft Edge)),REJECT",
+    "AND,((NETWORK,udp),(PROCESS-NAME,Firefox)),REJECT",
     
     // --- STUN 常见端口封杀 ---
-    "AND,(NETWORK,udp),(DST-PORT,3478),REJECT",
-    "AND,(NETWORK,tcp),(DST-PORT,3478),REJECT",
-    "AND,(NETWORK,udp),(DST-PORT,19302),REJECT",
-    "AND,(NETWORK,tcp),(DST-PORT,19302),REJECT",
-    "AND,(NETWORK,udp),(DST-PORT,5349),REJECT",
-    "AND,(NETWORK,tcp),(DST-PORT,5349),REJECT",
+    "AND,((NETWORK,udp),(DST-PORT,3478)),REJECT",
+    "AND,((NETWORK,tcp),(DST-PORT,3478)),REJECT",
+    "AND,((NETWORK,udp),(DST-PORT,19302)),REJECT",
+    "AND,((NETWORK,tcp),(DST-PORT,19302)),REJECT",
+    "AND,((NETWORK,udp),(DST-PORT,5349)),REJECT",
+    "AND,((NETWORK,tcp),(DST-PORT,5349)),REJECT",
     
     // --- [极速解析] 局域网拦截优化 ---
     // 核心优化：私有网络彻底告别 ipcidr 数万行规则集，改用 GEOIP 内存态原生二进制查询，处理耗时降至微秒级！
