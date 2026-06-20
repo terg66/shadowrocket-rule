@@ -105,12 +105,14 @@ var HEALTH_CHECK_URL = "https://www.gstatic.com/generate_204";
 // 🚀 [主干配置注入] - Config Generator
 // ============================================================================
 function main(config) {
-  
+
   // 📌 [1] 全局核心设置 (Global Config)
   config["ipv6"] = true;                  // 开启 IPv6 支持，顺应现代网络架构
   config["tcp-concurrent"] = true;        // 开启 TCP 并发，大幅提升连接建立速度
   config["unified-delay"] = true;         // 统一延迟计算，确保探活数据准确性
   config["find-process-mode"] = "always"; // 始终寻找进程名，便于基于进程的精确路由
+  config["experimental"] = config["experimental"] || {};
+  config["experimental"]["udp-fallback-match"] = false; // 配合拦截规则，阻断不支持 UDP 的节点并触发 TCP 优雅降级
   config["profile"] = {
     "store-selected": true,               // 持久化保存用户的节点选择状态
     "store-fake-ip": true                 // 缓存 Fake-IP 映射，防止应用频繁断连
@@ -196,8 +198,8 @@ function main(config) {
       "+.weixin.com", "+.wx.qq.com", "+.servicewechat.com", "+.alipay.com",
       "+.alipayobjects.com", "+.unionpay.com", "+.tenpay.com", "+.wechatpay.com",
       "+.qlogo.cn", "+.qpic.cn", "localhost", "+.local", "+.lan",
-      "+.localdomain", 
-      "time.apple.com", "time1.apple.com", "time2.apple.com", 
+      "+.localdomain",
+      "time.apple.com", "time1.apple.com", "time2.apple.com",
       "time3.apple.com", "time4.apple.com", "time5.apple.com", "time6.apple.com",
       "time7.apple.com", "time-ios.apple.com", "time.cloudflare.com",
       "time.windows.com", "0.pool.ntp.org", "1.pool.ntp.org", "2.pool.ntp.org",
@@ -342,15 +344,15 @@ function main(config) {
     "DOMAIN,doh.pub,DIRECT",
     "DOMAIN,dns.alidns.com,DIRECT",
     "RULE-SET,httpdns-reject,REJECT,no-resolve", // 屏蔽 HttpDNS，防止大厂绕过代理泄漏真 IP
-    
+
     // --- [核心优化] WebRTC 与 QUIC 强力阻断 (防止真实 IP 泄漏) ---
-    "AND,((NETWORK,udp),(DST-PORT,443)),REJECT",   // 暴力禁止 UDP 443，强制应用回退至 TCP 代理
+    "AND,((NETWORK,UDP),(DST-PORT,443),(NOT,((GEOSITE,CN)))),REJECT", // 精准阻断非大陆 UDP 443 (QUIC)，强制境外 QUIC 降级至 TCP 且放行国内正常 UDP 流量
     "RULE-SET,category-ads-all,REJECT",
     "DOMAIN-REGEX,^(stun|turn|turns)\\d*\\.,REJECT",
     "DOMAIN-SUFFIX,coturn.net,REJECT",
     "DOMAIN-SUFFIX,metered.ca,REJECT",
     "DOMAIN-SUFFIX,anyfirewall.com,REJECT",
-    
+
     // --- 进程级 UDP 泄漏封堵 ---
     "AND,((NETWORK,udp),(PROCESS-NAME,chrome.exe)),REJECT",
     "AND,((NETWORK,udp),(PROCESS-NAME,msedge.exe)),REJECT",
@@ -362,7 +364,7 @@ function main(config) {
     "AND,((NETWORK,udp),(PROCESS-NAME,Google Chrome)),REJECT",
     "AND,((NETWORK,udp),(PROCESS-NAME,Microsoft Edge)),REJECT",
     "AND,((NETWORK,udp),(PROCESS-NAME,Firefox)),REJECT",
-    
+
     // --- STUN 常见端口封杀 ---
     "AND,((NETWORK,udp),(DST-PORT,3478)),REJECT",
     "AND,((NETWORK,tcp),(DST-PORT,3478)),REJECT",
@@ -370,11 +372,11 @@ function main(config) {
     "AND,((NETWORK,tcp),(DST-PORT,19302)),REJECT",
     "AND,((NETWORK,udp),(DST-PORT,5349)),REJECT",
     "AND,((NETWORK,tcp),(DST-PORT,5349)),REJECT",
-    
+
     // --- [极速解析] 局域网拦截优化 ---
     // 核心优化：私有网络彻底告别 ipcidr 数万行规则集，改用 GEOIP 内存态原生二进制查询，处理耗时降至微秒级！
     "GEOIP,private,🏠 私有网络,no-resolve",
-    
+
     // --- 常见国内服务直连 ---
     "DOMAIN-SUFFIX,twilio.com,🚀 节点选择",
     "DOMAIN-SUFFIX,weixin.com,DIRECT",
