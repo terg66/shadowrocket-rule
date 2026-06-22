@@ -117,6 +117,10 @@ function main(config) {
     "store-selected": true,               // 持久化保存用户的节点选择状态
     "store-fake-ip": true                 // 缓存 Fake-IP 映射，防止应用频繁断连
   };
+  // 🚀 [新规拓展] - 开启底层 TCP Fast Open (TFO) 支持 (兼容新老版内核规范)
+  config["inbound-tfo"] = true;           // 开启本地入站的 TCP 快速打开
+  config["outbound-tfo"] = true;          // 开启出站连接的 TCP 快速打开
+  config["tcp-fast-open"] = true;         // 兼容旧版及部分核心的 TCP 快速打开全局开关
 
   // 📡 [2] 域名嗅探 (Sniffer) - 解决 IP直连导致的路由黑洞
   config["sniffer"] = {
@@ -459,10 +463,10 @@ function main(config) {
   rules.push("DOMAIN-SUFFIX,nextcloud.com,🚀 节点选择");
 
   // --- [终极性能提速] 国内全栈直连兜底 --- 
-  // 核心优化 1：放弃超大型纯文本域名规则列表，改用内存载入的 GEOSITE 二进制直接检索 cn 标签，省去解析损耗
+  // 核心优化 1: 放弃超大型纯文本域名规则列表，改用内存载入的 GEOSITE 二进制直接检索 cn 标签，省去解析损耗
   rules.push("GEOSITE,cn,DIRECT");
 
-  // 核心优化 2：放弃传统 IP 匹配，直接调用底层库的 GEOIP 原生 Radix 树检索系统，效率呈指数级上升！
+  // 核心优化 2: 放弃传统 IP 匹配，直接调用底层库的 GEOIP 原生 Radix 树检索系统，效率呈指数级上升！
   // no-resolve 必须原样保留，100% 杜绝非名单域名的 DNS 泄漏！
   rules = rules.concat([
     "GEOIP,CN,DIRECT,no-resolve",
@@ -470,5 +474,13 @@ function main(config) {
   ]);
 
   config["rules"] = rules;
+
+  // 🚀 [新规拓展] - 遍历所有代理节点（含订阅导入及兜底节点），强制启用节点级别的 TCP Fast Open
+  if (config.proxies && Array.isArray(config.proxies)) {
+    config.proxies.forEach(proxy => {
+      proxy.tfo = true;                   // 注入节点层级的 tfo 属性
+    });
+  }
+
   return config;
 }
